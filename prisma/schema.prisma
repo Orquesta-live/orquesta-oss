@@ -1,0 +1,151 @@
+// Orquesta OSS — Prisma Schema
+// Swap DATABASE_URL to postgresql://... for Postgres
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Better Auth required tables ──────────────────────────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions      Session[]
+  accounts      Account[]
+  projectMembers ProjectMember[]
+  cliTokens     CliToken[]
+  prompts       Prompt[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                   String    @id
+  accountId            String
+  providerId           String
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken          String?
+  refreshToken         String?
+  idToken              String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                String?
+  password             String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ── App tables ───────────────────────────────────────────────────────────────
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  members     ProjectMember[]
+  prompts     Prompt[]
+  agentTokens AgentToken[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  role      String   @default("member") // owner | admin | member
+  joinedAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+}
+
+model AgentToken {
+  id        String    @id @default(cuid())
+  projectId String
+  name      String
+  tokenHash String    @unique
+  lastSeenAt DateTime?
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model CliToken {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  tokenHash   String    @unique
+  llmEndpoints String?  // JSON string
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Prompt {
+  id          String    @id @default(cuid())
+  projectId   String
+  userId      String
+  content     String
+  status      String    @default("pending") // pending | running | completed | failed
+  result      String?
+  error       String?
+  tokensUsed  Int?
+  costCents   Int?
+  source      String    @default("dashboard") // dashboard | cli | api
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  project Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User       @relation(fields: [userId], references: [id])
+  logs    AgentLog[]
+}
+
+model AgentLog {
+  id        String   @id @default(cuid())
+  promptId  String
+  level     String   @default("info") // info | error | debug
+  type      String   @default("text") // text | tool_use | result | system
+  message   String
+  sequence  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  prompt Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@index([promptId, sequence])
+}

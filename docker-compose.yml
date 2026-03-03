@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      DATABASE_URL: "file:/app/data/orquesta.db"
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:-change-me-to-a-random-32-char-string}"
+      BETTER_AUTH_URL: "${BETTER_AUTH_URL:-http://localhost:3000}"
+      NEXT_PUBLIC_APP_URL: "${NEXT_PUBLIC_APP_URL:-http://localhost:3000}"
+      PORT: "3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/auth/get-session"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+# Zero extra services.
+# SQLite lives in ./data/.
+# Swap DATABASE_URL to postgresql://... for Postgres (add a postgres service if needed).
