@@ -10,6 +10,7 @@ import { PromptInput } from '@/components/features/PromptInput'
 import { PromptTimeline } from '@/components/features/PromptTimeline'
 import { AgentGrid } from '@/components/features/AgentGrid'
 import { TeamManager } from '@/components/features/TeamManager'
+import { ConnectionGuide } from '@/components/features/ConnectionGuide'
 import { useSocket } from '@/hooks/useSocket'
 import {
   ArrowLeft, MessageSquare, LayoutGrid, Users, Key, Copy, Check,
@@ -300,26 +301,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               </CardContent>
             </Card>
 
-            {/* Connection instructions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Connect your agent</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-zinc-400">
-                  Run this on any VM or machine where you want to execute AI prompts:
-                </p>
-                <code className="block rounded-md bg-zinc-950 p-3 text-xs text-zinc-300 overflow-x-auto">
-                  {`# Install agent (one-time)\nnpm install -g orquesta-agent\n\n# Connect to this Orquesta OSS instance\nORQUESTA_API_URL=${appUrl} \\\norquesta-agent --token <your-token-here>`}
-                </code>
-                <p className="text-xs text-zinc-500">
-                  Or use the orquesta-cli:{' '}
-                  <code className="text-green-400">
-                    ORQUESTA_API_URL={appUrl} orquesta --token &lt;cli-token&gt;
-                  </code>
-                </p>
-              </CardContent>
-            </Card>
+            <ConnectionGuide appUrl={appUrl} tokenValue={newTokenValue ?? undefined} />
           </div>
         )}
       </main>

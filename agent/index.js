@@ -25,7 +25,7 @@ function parseArgs() {
     if (args[i] === '--token' && args[i + 1]) result.token = args[++i]
   }
   return {
-    url: result.url || process.env.ORQUESTA_URL || 'http://localhost:3000',
+    url: result.url || process.env.ORQUESTA_API_URL || process.env.ORQUESTA_URL || 'http://localhost:3000',
     token: result.token || process.env.ORQUESTA_TOKEN || '',
   }
 }
