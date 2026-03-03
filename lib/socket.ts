@@ -178,6 +178,12 @@ async function handleDashboardConnection(socket: Socket) {
       socket.join(room)
       socket.data.userId = session.userId
       socket.data.projectId = data.projectId
+
+      // Tell dashboard the current agent connection status immediately
+      // so it doesn't have to wait for the next connect/disconnect event
+      const roomSockets = await global.socketIO!.in(room).fetchSockets()
+      const connectedAgents = roomSockets.filter((s) => s.data?.isAgent).length
+      socket.emit('agent:status', { connectedAgents, projectId: data.projectId })
       socket.emit('joined', { projectId: data.projectId })
     } catch (err) {
       console.error('[socket] Dashboard join error:', err)

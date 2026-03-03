@@ -141,7 +141,14 @@ socket.on('execute', async ({ promptId, content }) => {
 
       proc.on('error', (err) => {
         currentProcess = null
-        reject(err)
+        if (err.code === 'ENOENT') {
+          const msg = `Claude CLI not found at "${claudePath}". Install it with: npm install -g @anthropic-ai/claude-code  (or set CLAUDE_PATH env var)`
+          console.error(`[agent] ${msg}`)
+          emitLog('error', 'system', msg)
+          reject(new Error(msg))
+        } else {
+          reject(err)
+        }
       })
     })
 

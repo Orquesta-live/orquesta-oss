@@ -33,6 +33,7 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
   const [inviteRole, setInviteRole] = useState<'member' | 'admin'>('member')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const loadMembers = async () => {
     try {
@@ -71,20 +72,34 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
   }
 
   const changeRole = async (memberId: string, role: string) => {
-    const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role }),
-    })
-    if (res.ok) await loadMembers()
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to change role')
+      await loadMembers()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unknown error')
+    }
   }
 
   const remove = async (memberId: string) => {
     if (!confirm('Remove this member?')) return
-    const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
-      method: 'DELETE',
-    })
-    if (res.ok) await loadMembers()
+    setActionError(null)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
+        method: 'DELETE',
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to remove member')
+      await loadMembers()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unknown error')
+    }
   }
 
   const canManage = ['owner', 'admin'].includes(callerRole)
@@ -122,6 +137,12 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
             {inviteError && <p className="mt-2 text-xs text-red-400">{inviteError}</p>}
           </CardContent>
         </Card>
+      )}
+
+      {actionError && (
+        <p className="rounded-md bg-red-950/50 border border-red-900 px-3 py-2 text-sm text-red-400">
+          {actionError}
+        </p>
       )}
 
       <Card>

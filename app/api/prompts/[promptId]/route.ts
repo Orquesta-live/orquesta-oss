@@ -29,6 +29,14 @@ export async function GET(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    // Verify the user is a member of the project that owns this prompt
+    const member = await db.projectMember.findFirst({
+      where: { userId: session.user.id, projectId: prompt.projectId },
+    })
+    if (!member) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
     return NextResponse.json(prompt)
   } catch (err) {
     console.error('[api/prompts/[promptId] GET]', err)

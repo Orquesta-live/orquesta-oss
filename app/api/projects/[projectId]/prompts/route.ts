@@ -63,32 +63,58 @@ export async function POST(
       return NextResponse.json({ error: 'Prompt content required' }, { status: 400 })
     }
 
+    // Fetch user for the prompt:new broadcast
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, name: true, email: true },
+    })
+
+    // Create prompt with running status immediately if agent is online
+    let status = 'pending'
+    let startedAt: Date | null = null
+
+    try {
+      const io = getIO()
+      const room = `project-${projectId}`
+      const roomSockets = await io.in(room).fetchSockets()
+      const agentConnected = roomSockets.some((s) => s.data?.isAgent)
+      if (agentConnected) {
+        status = 'running'
+        startedAt = new Date()
+      }
+    } catch {
+      // Socket.io not available
+    }
+
     const prompt = await db.prompt.create({
       data: {
         projectId,
         userId: session.user.id,
         content: content.trim(),
         source: 'dashboard',
-        status: 'pending',
+        status,
+        ...(startedAt && { startedAt }),
       },
     })
 
-    // Emit execute to agents in this project
+    const promptWithUser = { ...prompt, user, _count: { logs: 0 } }
+
+    // Broadcast new prompt to all dashboard clients in the room
     try {
       const io = getIO()
-      await db.prompt.update({
-        where: { id: prompt.id },
-        data: { status: 'running', startedAt: new Date() },
-      })
-      io.to(`project-${projectId}`).emit('execute', {
-        promptId: prompt.id,
-        content: prompt.content,
-      })
+      io.to(`project-${projectId}`).emit('prompt:new', promptWithUser)
+      // Dispatch to agent if running
+      if (status === 'running') {
+        io.to(`project-${projectId}`).emit('execute', {
+          promptId: prompt.id,
+          content: prompt.content,
+        })
+      }
     } catch {
-      // Socket.io not available yet
+      // Socket.io not available
     }
 
-    return NextResponse.json({ prompt }, { status: 201 })
+    return NextResponse.json({ prompt: promptWithUser }, { status: 201 })
   } catch (err) {
     console.error('[api/projects/[id]/prompts POST]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

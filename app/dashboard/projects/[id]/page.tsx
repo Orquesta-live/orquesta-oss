@@ -31,14 +31,6 @@ interface Project {
   description?: string
 }
 
-// Better Auth session cookie is httpOnly, so we read the session token via a helper endpoint
-async function getSessionToken(): Promise<string> {
-  const res = await fetch('/api/auth/get-session')
-  if (!res.ok) return ''
-  const data = await res.json()
-  return data.session?.token || ''
-}
-
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params)
   const router = useRouter()
@@ -47,6 +39,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [role, setRole] = useState<string>('member')
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [sessionToken, setSessionToken] = useState<string>('')
+  const [appUrl, setAppUrl] = useState('http://localhost:3000')
   const [tokens, setTokens] = useState<AgentToken[]>([])
   const [creatingToken, setCreatingToken] = useState(false)
   const [newTokenValue, setNewTokenValue] = useState<string | null>(null)
@@ -55,25 +48,29 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const { socket, connected, agentOnline } = useSocket({ projectId, sessionToken })
 
   useEffect(() => {
+    // Capture origin on client side (no SSR mismatch)
+    setAppUrl(window.location.origin)
+  }, [])
+
+  useEffect(() => {
     const init = async () => {
-      // Load project
-      const res = await fetch(`/api/projects/${projectId}`)
-      if (res.status === 401) { router.push('/login'); return }
-      if (res.status === 404) { router.push('/dashboard'); return }
-      if (res.ok) {
-        const data = await res.json()
+      // Single get-session call gives us both the token and the user
+      const [projectRes, sessionRes] = await Promise.all([
+        fetch(`/api/projects/${projectId}`),
+        fetch('/api/auth/get-session'),
+      ])
+
+      if (projectRes.status === 401) { router.push('/login'); return }
+      if (projectRes.status === 404) { router.push('/dashboard'); return }
+      if (projectRes.ok) {
+        const data = await projectRes.json()
         setProject(data.project)
         setRole(data.role)
       }
 
-      // Get session token for Socket.io auth
-      const token = await getSessionToken()
-      setSessionToken(token)
-
-      // Get current user
-      const sessionRes = await fetch('/api/auth/get-session')
       if (sessionRes.ok) {
         const data = await sessionRes.json()
+        setSessionToken(data.session?.token || '')
         setCurrentUserId(data.session?.user?.id || '')
       }
     }
@@ -259,7 +256,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   Run your agent with:
                 </p>
                 <code className="mt-1 block rounded bg-zinc-900 px-3 py-2 text-xs text-zinc-300">
-                  {`ORQUESTA_API_URL=${window.location.origin} npx orquesta-agent --token ${newTokenValue}`}
+                  {`ORQUESTA_API_URL=${appUrl} npx orquesta-agent --token ${newTokenValue}`}
                 </code>
                 <Button
                   variant="ghost"
@@ -313,12 +310,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                   Run this on any VM or machine where you want to execute AI prompts:
                 </p>
                 <code className="block rounded-md bg-zinc-950 p-3 text-xs text-zinc-300 overflow-x-auto">
-                  {`# Install agent (one-time)\nnpm install -g orquesta-agent\n\n# Connect to this Orquesta OSS instance\nORQUESTA_API_URL=${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'} \\\norquesta-agent --token <your-token-here>`}
+                  {`# Install agent (one-time)\nnpm install -g orquesta-agent\n\n# Connect to this Orquesta OSS instance\nORQUESTA_API_URL=${appUrl} \\\norquesta-agent --token <your-token-here>`}
                 </code>
                 <p className="text-xs text-zinc-500">
                   Or use the orquesta-cli:{' '}
                   <code className="text-green-400">
-                    ORQUESTA_API_URL={typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'} orquesta --token &lt;cli-token&gt;
+                    ORQUESTA_API_URL={appUrl} orquesta --token &lt;cli-token&gt;
                   </code>
                 </p>
               </CardContent>

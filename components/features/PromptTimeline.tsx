@@ -166,6 +166,14 @@ export function PromptTimeline({ projectId, socket }: PromptTimelineProps) {
   useEffect(() => {
     if (!socket) return
 
+    // New prompt submitted by any team member → prepend to list
+    const handleNew = (prompt: Prompt) => {
+      setPrompts((prev) => {
+        if (prev.some((p) => p.id === prompt.id)) return prev // deduplicate
+        return [prompt, ...prev]
+      })
+    }
+
     const handleUpdate = (data: { promptId: string; status: string; tokensUsed?: number; costCents?: number }) => {
       setPrompts((prev) =>
         prev.map((p) =>
@@ -176,8 +184,12 @@ export function PromptTimeline({ projectId, socket }: PromptTimelineProps) {
       )
     }
 
+    socket.on('prompt:new', handleNew)
     socket.on('prompt:update', handleUpdate)
-    return () => { socket.off('prompt:update', handleUpdate) }
+    return () => {
+      socket.off('prompt:new', handleNew)
+      socket.off('prompt:update', handleUpdate)
+    }
   }, [socket])
 
   if (loading) {
