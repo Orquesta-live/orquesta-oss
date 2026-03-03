@@ -5,13 +5,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Trash2, UserPlus, Shield, User } from 'lucide-react'
+import { Trash2, UserPlus, User, Bot, Plus, Copy, Check, X } from 'lucide-react'
 
 interface Member {
   id: string
   role: string
   joinedAt: string
   user: { id: string; name: string; email: string; image?: string }
+}
+
+interface AgentToken {
+  id: string
+  name: string
+  lastSeenAt?: string
+  createdAt: string
 }
 
 interface TeamManagerProps {
@@ -35,6 +42,13 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  // Agent tokens state
+  const [tokens, setTokens] = useState<AgentToken[]>([])
+  const [creatingToken, setCreatingToken] = useState(false)
+  const [newTokenValue, setNewTokenValue] = useState<string | null>(null)
+  const [newTokenName, setNewTokenName] = useState('')
+  const [copied, setCopied] = useState(false)
+
   const loadMembers = async () => {
     try {
       const res = await fetch(`/api/projects/${projectId}/members`)
@@ -48,7 +62,18 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
     }
   }
 
-  useEffect(() => { loadMembers() }, [projectId])
+  const loadTokens = async () => {
+    const res = await fetch(`/api/projects/${projectId}/agent-tokens`)
+    if (res.ok) {
+      const data = await res.json()
+      setTokens(data.tokens)
+    }
+  }
+
+  useEffect(() => {
+    loadMembers()
+    loadTokens()
+  }, [projectId])
 
   const invite = async () => {
     if (!email.trim()) return
@@ -91,15 +116,44 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
     if (!confirm('Remove this member?')) return
     setActionError(null)
     try {
-      const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
-        method: 'DELETE',
-      })
+      const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, { method: 'DELETE' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to remove member')
       await loadMembers()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Unknown error')
     }
+  }
+
+  const createToken = async () => {
+    setCreatingToken(true)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/agent-tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTokenName.trim() || `Token ${tokens.length + 1}` }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setNewTokenValue(data.token.rawToken)
+        setNewTokenName('')
+        await loadTokens()
+      }
+    } finally {
+      setCreatingToken(false)
+    }
+  }
+
+  const revokeToken = async (tokenId: string) => {
+    if (!confirm('Revoke this token? The agent will disconnect.')) return
+    await fetch(`/api/projects/${projectId}/agent-tokens/${tokenId}`, { method: 'DELETE' })
+    await loadTokens()
+  }
+
+  const copyToken = async (value: string) => {
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const canManage = ['owner', 'admin'].includes(callerRole)
@@ -186,6 +240,89 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Agents section ── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-4 w-4" /> Agents
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* New token reveal banner */}
+          {newTokenValue && (
+            <div className="rounded-lg border border-green-900 bg-green-950/30 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium text-green-400">
+                  Token created — copy it now, it won&apos;t be shown again
+                </p>
+                <button onClick={() => setNewTokenValue(null)} className="text-zinc-500 hover:text-white shrink-0">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <code className="flex-1 rounded bg-zinc-900 px-3 py-2 text-xs text-white font-mono break-all">
+                  {newTokenValue}
+                </code>
+                <button
+                  onClick={() => copyToken(newTokenValue)}
+                  className="p-2 rounded border border-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                >
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Token list */}
+          {tokens.length === 0 ? (
+            <p className="text-sm text-zinc-500">No agent tokens yet.</p>
+          ) : (
+            <div className="divide-y divide-zinc-800 rounded-lg border border-zinc-800 overflow-hidden">
+              {tokens.map((t) => (
+                <div key={t.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-3.5 w-3.5 text-zinc-500" />
+                    <div>
+                      <p className="text-sm font-medium text-white">{t.name}</p>
+                      <p className="text-xs text-zinc-500">
+                        {t.lastSeenAt
+                          ? `Last seen ${new Date(t.lastSeenAt).toLocaleDateString()}`
+                          : `Created ${new Date(t.createdAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  </div>
+                  {canManage && (
+                    <button
+                      onClick={() => revokeToken(t.id)}
+                      className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Create token */}
+          {canManage && (
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                value={newTokenName}
+                onChange={e => setNewTokenName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && createToken()}
+                placeholder="Token name (e.g. Laptop)"
+                className="flex-1 h-9 rounded-md border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+              />
+              <Button size="sm" onClick={createToken} loading={creatingToken}>
+                <Plus className="h-4 w-4" /> Create
+              </Button>
             </div>
           )}
         </CardContent>

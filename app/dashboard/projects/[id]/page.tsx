@@ -8,16 +8,16 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { PromptInput } from '@/components/features/PromptInput'
 import { PromptTimeline } from '@/components/features/PromptTimeline'
-import { AgentGrid } from '@/components/features/AgentGrid'
 import { TeamManager } from '@/components/features/TeamManager'
 import { ConnectionGuide } from '@/components/features/ConnectionGuide'
 import { useSocket } from '@/hooks/useSocket'
 import {
-  ArrowLeft, MessageSquare, LayoutGrid, Users, Key, Copy, Check,
-  Plus, Trash2, Wifi, WifiOff,
+  ArrowLeft, MessageSquare, Users, Key, Copy, Check,
+  Plus, Trash2, Wifi, WifiOff, Puzzle, Code2, Terminal,
+  Package, Globe, Loader2,
 } from 'lucide-react'
 
-type Tab = 'prompts' | 'grid' | 'team' | 'tokens'
+type Tab = 'prompts' | 'team' | 'tokens' | 'integrations'
 
 interface AgentToken {
   id: string
@@ -30,6 +30,7 @@ interface Project {
   id: string
   name: string
   description?: string
+  publishedToFeed?: boolean
 }
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -44,18 +45,18 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [tokens, setTokens] = useState<AgentToken[]>([])
   const [creatingToken, setCreatingToken] = useState(false)
   const [newTokenValue, setNewTokenValue] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
+  const [publishing, setPublishing] = useState(false)
+  const [publishMsg, setPublishMsg] = useState<string | null>(null)
 
-  const { socket, connected, agentOnline } = useSocket({ projectId, sessionToken })
+  const { socket, agentOnline } = useSocket({ projectId, sessionToken })
 
   useEffect(() => {
-    // Capture origin on client side (no SSR mismatch)
     setAppUrl(window.location.origin)
   }, [])
 
   useEffect(() => {
     const init = async () => {
-      // Single get-session call gives us both the token and the user
       const [projectRes, sessionRes] = await Promise.all([
         fetch(`/api/projects/${projectId}`),
         fetch('/api/auth/get-session'),
@@ -114,10 +115,38 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     await loadTokens()
   }
 
-  const copyToken = async (value: string) => {
+  const copyText = async (value: string, id: string) => {
     await navigator.clipboard.writeText(value)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopied(id)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const publishToFeed = async () => {
+    setPublishing(true)
+    setPublishMsg(null)
+    try {
+      const promptCount = 0 // could fetch real count
+      const res = await fetch('https://orquesta.live/api/oss/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: project?.name,
+          description: project?.description,
+          instance_url: appUrl,
+          prompt_count: promptCount,
+        }),
+      })
+      if (res.ok) {
+        setPublishMsg('Published! Your instance is now visible at orquesta.live/feed')
+        setProject(p => p ? { ...p, publishedToFeed: true } : p)
+      } else {
+        setPublishMsg('Failed to publish. Try again later.')
+      }
+    } catch {
+      setPublishMsg('Could not reach orquesta.live. Check your internet connection.')
+    } finally {
+      setPublishing(false)
+    }
   }
 
   if (!project) {
@@ -130,10 +159,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'prompts', label: 'Prompts', icon: <MessageSquare className="h-4 w-4" /> },
-    { id: 'grid', label: 'Agent Grid', icon: <LayoutGrid className="h-4 w-4" /> },
     { id: 'team', label: 'Team', icon: <Users className="h-4 w-4" /> },
     { id: 'tokens', label: 'Tokens', icon: <Key className="h-4 w-4" /> },
+    { id: 'integrations', label: 'Integrations', icon: <Puzzle className="h-4 w-4" /> },
   ]
+
+  const isOwner = role === 'owner'
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -169,8 +200,31 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 <WifiOff className="h-3 w-3" /> Agent offline
               </Badge>
             )}
+            {/* Publish to community */}
+            {isOwner && (
+              <Button
+                size="sm"
+                variant={project.publishedToFeed ? 'ghost' : 'outline'}
+                onClick={publishToFeed}
+                disabled={publishing}
+                className={project.publishedToFeed ? 'text-green-400 border-green-800' : ''}
+              >
+                {publishing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Globe className="h-3.5 w-3.5" />
+                )}
+                {project.publishedToFeed ? 'Published' : 'Publish to community'}
+              </Button>
+            )}
           </div>
         </div>
+        {/* Publish feedback */}
+        {publishMsg && (
+          <div className="mx-auto max-w-6xl px-6 pb-2">
+            <p className="text-xs text-green-400">{publishMsg}</p>
+          </div>
+        )}
       </header>
 
       {/* Tabs */}
@@ -199,16 +253,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       <main className="mx-auto max-w-6xl px-6 py-6">
         {tab === 'prompts' && (
           <div className="space-y-4">
-            <PromptInput
-              projectId={projectId}
-              agentOnline={agentOnline}
-            />
+            <PromptInput projectId={projectId} agentOnline={agentOnline} />
             <PromptTimeline projectId={projectId} socket={socket} />
           </div>
-        )}
-
-        {tab === 'grid' && (
-          <AgentGrid socket={socket} />
         )}
 
         {tab === 'team' && (
@@ -235,36 +282,24 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
               )}
             </div>
 
-            {/* New token reveal */}
             {newTokenValue && (
               <div className="rounded-lg border border-green-900 bg-green-950/30 p-4">
                 <p className="text-sm font-medium text-green-400 mb-2">
-                  Token created — copy it now, it won't be shown again
+                  Token created — copy it now, it won&apos;t be shown again
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 rounded bg-zinc-900 px-3 py-2 text-xs text-white font-mono break-all">
                     {newTokenValue}
                   </code>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => copyToken(newTokenValue)}
-                  >
-                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  <Button variant="outline" size="icon" onClick={() => copyText(newTokenValue, 'token-reveal')}>
+                    {copied === 'token-reveal' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <p className="mt-3 text-xs text-zinc-500">
-                  Run your agent with:
-                </p>
+                <p className="mt-3 text-xs text-zinc-500">Run your agent with:</p>
                 <code className="mt-1 block rounded bg-zinc-900 px-3 py-2 text-xs text-zinc-300">
                   {`ORQUESTA_API_URL=${appUrl} npx orquesta-agent --token ${newTokenValue}`}
                 </code>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => setNewTokenValue(null)}
-                >
+                <Button variant="ghost" size="sm" className="mt-3" onClick={() => setNewTokenValue(null)}>
                   Dismiss
                 </Button>
               </div>
@@ -287,10 +322,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                           </p>
                         </div>
                         {['owner', 'admin'].includes(role) && (
-                          <button
-                            onClick={() => revokeToken(t.id)}
-                            className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors"
-                          >
+                          <button onClick={() => revokeToken(t.id)} className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         )}
@@ -302,6 +334,96 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </Card>
 
             <ConnectionGuide appUrl={appUrl} tokenValue={newTokenValue ?? undefined} />
+          </div>
+        )}
+
+        {tab === 'integrations' && (
+          <div className="space-y-6">
+            {/* Embed Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Code2 className="h-5 w-5" /> Embed Widget
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-zinc-400">Add the Orquesta prompt widget to any website.</p>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400 mb-1.5">1. Load the script</p>
+                  <div className="group relative">
+                    <pre className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-xs text-zinc-300 font-mono overflow-x-auto">
+                      {`<script src="${appUrl}/embed/v1/orquesta.min.js"></script>`}
+                    </pre>
+                    <button
+                      onClick={() => copyText(`<script src="${appUrl}/embed/v1/orquesta.min.js"></script>`, 'embed-script')}
+                      className="absolute right-2 top-2 rounded p-1.5 text-zinc-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      {copied === 'embed-script' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400 mb-1.5">2. Add the widget</p>
+                  <div className="group relative">
+                    <pre className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-xs text-zinc-300 font-mono overflow-x-auto">{`<div
+  id="orquesta-widget"
+  data-project-id="${projectId}"
+  data-token="YOUR_EMBED_TOKEN"
+></div>`}</pre>
+                    <button
+                      onClick={() => copyText(`<div\n  id="orquesta-widget"\n  data-project-id="${projectId}"\n  data-token="YOUR_EMBED_TOKEN"\n></div>`, 'embed-div')}
+                      className="absolute right-2 top-2 rounded p-1.5 text-zinc-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      {copied === 'embed-div' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+                <p className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <Package className="h-3.5 w-3.5" />
+                  Also on npm: <code className="font-mono text-zinc-300">npm install orquesta-embed</code>
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* CLI Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Terminal className="h-5 w-5" /> Orquesta CLI
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-zinc-400">Submit prompts and manage projects from your terminal.</p>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400 mb-1.5">Install</p>
+                  <div className="group relative">
+                    <pre className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-xs text-zinc-300 font-mono">
+                      npm install -g orquesta-cli
+                    </pre>
+                    <button
+                      onClick={() => copyText('npm install -g orquesta-cli', 'cli-install')}
+                      className="absolute right-2 top-2 rounded p-1.5 text-zinc-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      {copied === 'cli-install' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400 mb-1.5">Connect</p>
+                  <div className="group relative">
+                    <pre className="rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-xs text-zinc-300 font-mono">
+                      {`ORQUESTA_API_URL=${appUrl} orquesta --token oclt_YOUR_TOKEN`}
+                    </pre>
+                    <button
+                      onClick={() => copyText(`ORQUESTA_API_URL=${appUrl} orquesta --token oclt_YOUR_TOKEN`, 'cli-connect')}
+                      className="absolute right-2 top-2 rounded p-1.5 text-zinc-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      {copied === 'cli-connect' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>

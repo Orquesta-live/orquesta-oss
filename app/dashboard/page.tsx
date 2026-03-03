@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, FolderOpen, Users, Zap, LogOut, Wifi, WifiOff } from 'lucide-react'
+import { AgentGrid } from '@/components/features/AgentGrid'
+import { useSocket } from '@/hooks/useSocket'
+import { Plus, FolderOpen, Users, Zap, LogOut, Wifi, WifiOff, LayoutGrid, FolderKanban } from 'lucide-react'
 import { formatRelative } from '@/lib/utils'
 
 interface Project {
@@ -32,6 +34,16 @@ export default function DashboardPage() {
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // Dashboard view toggle
+  const [view, setView] = useState<'projects' | 'grid'>('projects')
+
+  // For grid view — project picker + socket
+  const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [sessionToken, setSessionToken] = useState('')
+
+  // Always call useSocket (never conditional) — only joins when both are set
+  const { socket } = useSocket({ projectId: selectedProjectId, sessionToken })
+
   const load = async () => {
     try {
       const res = await fetch('/api/projects')
@@ -46,6 +58,13 @@ export default function DashboardPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  // Fetch session token once (needed for socket auth)
+  useEffect(() => {
+    fetch('/api/auth/get-session').then(r => r.json()).then(data => {
+      setSessionToken(data.session?.token || '')
+    }).catch(() => {})
+  }, [])
 
   const createProject = async (e: FormEvent) => {
     e.preventDefault()
@@ -87,123 +106,179 @@ export default function DashboardPage() {
             </div>
             <span className="font-semibold text-white">Orquesta OSS</span>
           </div>
-          <button
-            onClick={signOut}
-            className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-white transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
+          <div className="flex items-center gap-3">
+            {/* View toggle */}
+            <div className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 p-1">
+              <button
+                onClick={() => setView('projects')}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                  view === 'projects' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <FolderKanban className="h-3.5 w-3.5" />
+                Projects
+              </button>
+              <button
+                onClick={() => setView('grid')}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                  view === 'grid' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Agent Grid
+              </button>
+            </div>
+            <button
+              onClick={signOut}
+              className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-white transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Projects</h1>
-            <p className="mt-0.5 text-sm text-zinc-400">
-              {projects.length} project{projects.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <Button onClick={() => setShowCreate(true)} size="sm">
-            <Plus className="h-4 w-4" /> New Project
-          </Button>
-        </div>
 
-        {/* Create project modal */}
-        {showCreate && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
-              <h2 className="text-lg font-semibold text-white mb-4">New Project</h2>
-              <form onSubmit={createProject} className="space-y-4">
-                <Input
-                  label="Name"
-                  id="proj-name"
-                  placeholder="My AI Project"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-                <Input
-                  label="Description (optional)"
-                  id="proj-desc"
-                  placeholder="What will this project do?"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-                {error && <p className="text-xs text-red-400">{error}</p>}
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowCreate(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" loading={creating} disabled={!name.trim()}>
-                    Create Project
-                  </Button>
-                </div>
-              </form>
+        {/* ── Agent Grid view ── */}
+        {view === 'grid' && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-white">Agent Grid</h1>
+              <select
+                value={selectedProjectId}
+                onChange={e => setSelectedProjectId(e.target.value)}
+                className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-600"
+              >
+                <option value="">— pick a project —</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
+
+            {!selectedProjectId ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="rounded-full bg-zinc-800 p-5 mb-4">
+                  <LayoutGrid className="h-10 w-10 text-zinc-500" />
+                </div>
+                <p className="text-zinc-400 font-medium">Select a project to open the grid</p>
+                <p className="mt-1 text-sm text-zinc-600">Interactive terminal sessions with your connected agent.</p>
+              </div>
+            ) : (
+              <AgentGrid socket={socket} />
+            )}
           </div>
         )}
 
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-40 rounded-lg bg-zinc-900 animate-pulse" />
-            ))}
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="rounded-full bg-zinc-800 p-5 mb-4">
-              <FolderOpen className="h-10 w-10 text-zinc-500" />
+        {/* ── Projects view ── */}
+        {view === 'projects' && (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Projects</h1>
+                <p className="mt-0.5 text-sm text-zinc-400">
+                  {projects.length} project{projects.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <Button onClick={() => setShowCreate(true)} size="sm">
+                <Plus className="h-4 w-4" /> New Project
+              </Button>
             </div>
-            <p className="text-zinc-400 font-medium text-lg">No projects yet</p>
-            <p className="mt-1 text-sm text-zinc-600">Create your first project to get started.</p>
-            <Button onClick={() => setShowCreate(true)} className="mt-6">
-              <Plus className="h-4 w-4" /> Create Project
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((p) => (
-              <Link key={p.id} href={`/dashboard/projects/${p.id}`}>
-                <Card className="h-full hover:border-zinc-700 hover:bg-zinc-800/50 transition-all cursor-pointer">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-base">{p.name}</CardTitle>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {p.agentOnline ? (
-                          <Wifi className="h-3.5 w-3.5 text-green-500" />
-                        ) : (
-                          <WifiOff className="h-3.5 w-3.5 text-zinc-600" />
+
+            {/* Create project modal */}
+            {showCreate && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
+                  <h2 className="text-lg font-semibold text-white mb-4">New Project</h2>
+                  <form onSubmit={createProject} className="space-y-4">
+                    <Input
+                      label="Name"
+                      id="proj-name"
+                      placeholder="My AI Project"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                    <Input
+                      label="Description (optional)"
+                      id="proj-desc"
+                      placeholder="What will this project do?"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                    {error && <p className="text-xs text-red-400">{error}</p>}
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" loading={creating} disabled={!name.trim()}>
+                        Create Project
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-40 rounded-lg bg-zinc-900 animate-pulse" />
+                ))}
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="rounded-full bg-zinc-800 p-5 mb-4">
+                  <FolderOpen className="h-10 w-10 text-zinc-500" />
+                </div>
+                <p className="text-zinc-400 font-medium text-lg">No projects yet</p>
+                <p className="mt-1 text-sm text-zinc-600">Create your first project to get started.</p>
+                <Button onClick={() => setShowCreate(true)} className="mt-6">
+                  <Plus className="h-4 w-4" /> Create Project
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {projects.map((p) => (
+                  <Link key={p.id} href={`/dashboard/projects/${p.id}`}>
+                    <Card className="h-full hover:border-zinc-700 hover:bg-zinc-800/50 transition-all cursor-pointer">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <CardTitle className="text-base">{p.name}</CardTitle>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {p.agentOnline ? (
+                              <Wifi className="h-3.5 w-3.5 text-green-500" />
+                            ) : (
+                              <WifiOff className="h-3.5 w-3.5 text-zinc-600" />
+                            )}
+                            <Badge variant={p.role === 'owner' ? 'green' : 'default'} className="text-[10px]">
+                              {p.role}
+                            </Badge>
+                          </div>
+                        </div>
+                        {p.description && (
+                          <CardDescription className="line-clamp-2">{p.description}</CardDescription>
                         )}
-                        <Badge variant={p.role === 'owner' ? 'green' : 'default'} className="text-[10px]">
-                          {p.role}
-                        </Badge>
-                      </div>
-                    </div>
-                    {p.description && (
-                      <CardDescription className="line-clamp-2">{p.description}</CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 text-xs text-zinc-500">
-                      <span className="flex items-center gap-1">
-                        <Zap className="h-3.5 w-3.5" /> {p.promptCount} prompts
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" /> {p.memberCount} members
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs text-zinc-600">{formatRelative(p.createdAt)}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center gap-4 text-xs text-zinc-500">
+                          <span className="flex items-center gap-1">
+                            <Zap className="h-3.5 w-3.5" /> {p.promptCount} prompts
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5" /> {p.memberCount} members
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-zinc-600">{formatRelative(p.createdAt)}</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>

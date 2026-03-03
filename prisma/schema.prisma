@@ -69,10 +69,11 @@ model Verification {
 // ── App tables ───────────────────────────────────────────────────────────────
 
 model Project {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  publishedToFeed Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   members     ProjectMember[]
   prompts     Prompt[]
