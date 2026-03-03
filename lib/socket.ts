@@ -3,17 +3,21 @@ import type { Server as HttpServer } from 'http'
 import { db } from './db'
 import crypto from 'crypto'
 
-let io: SocketIOServer | null = null
+// Store on global so all Next.js module bundle instances share the same reference
+declare global {
+  // eslint-disable-next-line no-var
+  var socketIO: SocketIOServer | undefined
+}
 
 export function getIO(): SocketIOServer {
-  if (!io) throw new Error('Socket.io not initialized. Call initSocketIO first.')
-  return io
+  if (!global.socketIO) throw new Error('Socket.io not initialized. Call initSocketIO first.')
+  return global.socketIO
 }
 
 export function initSocketIO(httpServer: HttpServer): SocketIOServer {
-  if (io) return io
+  if (global.socketIO) return global.socketIO
 
-  io = new SocketIOServer(httpServer, {
+  global.socketIO = new SocketIOServer(httpServer, {
     cors: {
       origin: '*',
       methods: ['GET', 'POST'],
@@ -21,7 +25,7 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     path: '/api/socket',
   })
 
-  io.on('connection', (socket: Socket) => {
+  global.socketIO.on('connection', (socket: Socket) => {
     const clientType = socket.handshake.query.type as string | undefined
 
     if (clientType === 'agent') {
@@ -32,7 +36,7 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
   })
 
   console.log('[socket] Socket.io server initialized')
-  return io
+  return global.socketIO
 }
 
 // ── Agent connections ─────────────────────────────────────────────────────────
