@@ -104,6 +104,41 @@ async function handleAgentConnection(socket: Socket) {
     }
   })
 
+  socket.on('git:commits', async (data: {
+    promptId: string
+    commits: Array<{
+      hash: string
+      message: string
+      diff?: string
+      filesChanged?: number
+      insertions?: number
+      deletions?: number
+    }>
+  }) => {
+    try {
+      for (const commit of data.commits) {
+        await db.gitCommit.create({
+          data: {
+            projectId: agentToken.projectId,
+            promptId: data.promptId,
+            hash: commit.hash,
+            message: commit.message,
+            diff: commit.diff,
+            filesChanged: commit.filesChanged || 0,
+            insertions: commit.insertions || 0,
+            deletions: commit.deletions || 0,
+          },
+        })
+      }
+      socket.to(room).emit('git:commits', {
+        promptId: data.promptId,
+        commits: data.commits,
+      })
+    } catch (err) {
+      console.error('[socket] Failed to save git commits:', err)
+    }
+  })
+
   socket.on('complete', async (data: {
     promptId: string
     exitCode: number

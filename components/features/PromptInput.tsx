@@ -2,6 +2,7 @@
 
 import { useState, useRef, KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/toast'
 import { Send, Loader2 } from 'lucide-react'
 
 interface PromptInputProps {
@@ -15,6 +16,7 @@ export function PromptInput({ projectId, agentOnline, onSubmitted }: PromptInput
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { toast } = useToast()
 
   const submit = async () => {
     const trimmed = content.trim()
@@ -37,9 +39,12 @@ export function PromptInput({ projectId, agentOnline, onSubmitted }: PromptInput
 
       const data = await res.json()
       setContent('')
+      toast('success', 'Prompt submitted')
       onSubmitted?.(data.prompt.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      setError(msg)
+      toast('error', msg)
     } finally {
       setLoading(false)
     }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,13 +12,14 @@ import { PromptTimeline } from '@/components/features/PromptTimeline'
 import { TeamManager } from '@/components/features/TeamManager'
 import { ConnectionGuide } from '@/components/features/ConnectionGuide'
 import { useSocket } from '@/hooks/useSocket'
+import { useToast } from '@/components/ui/toast'
 import {
   ArrowLeft, MessageSquare, Users, Key, Copy, Check,
   Plus, Trash2, Wifi, WifiOff, Puzzle, Code2, Terminal,
-  Package, Globe, Loader2,
+  Package, Globe, Loader2, Settings, Save, FileCode,
 } from 'lucide-react'
 
-type Tab = 'prompts' | 'team' | 'tokens' | 'integrations'
+type Tab = 'prompts' | 'team' | 'tokens' | 'integrations' | 'settings'
 
 interface AgentToken {
   id: string
@@ -48,6 +50,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [copied, setCopied] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [publishMsg, setPublishMsg] = useState<string | null>(null)
+  const [claudeMd, setClaudeMd] = useState('')
+  const [claudeMdLoading, setClaudeMdLoading] = useState(false)
+  const [claudeMdSaving, setClaudeMdSaving] = useState(false)
+  const { toast } = useToast()
 
   const { socket, agentOnline } = useSocket({ projectId, sessionToken })
 
@@ -89,6 +95,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
   useEffect(() => {
     if (tab === 'tokens') loadTokens()
+    if (tab === 'settings') {
+      setClaudeMdLoading(true)
+      fetch(`/api/projects/${projectId}/settings`)
+        .then(r => r.json())
+        .then(d => setClaudeMd(d.claudeMd || ''))
+        .catch(() => {})
+        .finally(() => setClaudeMdLoading(false))
+    }
   }, [tab])
 
   const createToken = async () => {
@@ -113,6 +127,27 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     if (!confirm('Revoke this token? The agent using it will disconnect.')) return
     await fetch(`/api/projects/${projectId}/agent-tokens/${tokenId}`, { method: 'DELETE' })
     await loadTokens()
+  }
+
+  const saveClaudeMd = async () => {
+    setClaudeMdSaving(true)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claudeMd }),
+      })
+      if (res.ok) {
+        toast('success', 'CLAUDE.md saved — agent will use it on next execution')
+      } else {
+        const data = await res.json()
+        toast('error', data.error || 'Failed to save')
+      }
+    } catch {
+      toast('error', 'Failed to save CLAUDE.md')
+    } finally {
+      setClaudeMdSaving(false)
+    }
   }
 
   const copyText = async (value: string, id: string) => {
@@ -162,6 +197,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     { id: 'team', label: 'Team', icon: <Users className="h-4 w-4" /> },
     { id: 'tokens', label: 'Tokens', icon: <Key className="h-4 w-4" /> },
     { id: 'integrations', label: 'Integrations', icon: <Puzzle className="h-4 w-4" /> },
+    { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
   ]
 
   const isOwner = role === 'owner'
@@ -334,6 +370,47 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </Card>
 
             <ConnectionGuide appUrl={appUrl} tokenValue={newTokenValue ?? undefined} />
+          </div>
+        )}
+
+        {tab === 'settings' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                  <FileCode className="h-4 w-4 text-green-500" /> CLAUDE.md
+                </h2>
+                <p className="text-sm text-zinc-500 mt-0.5">
+                  Define coding standards, rules, and context. The agent syncs this before every execution.
+                </p>
+              </div>
+              {['owner', 'admin'].includes(role) && (
+                <Button onClick={saveClaudeMd} loading={claudeMdSaving} size="sm">
+                  <Save className="h-4 w-4" /> Save
+                </Button>
+              )}
+            </div>
+            <Card>
+              <CardContent className="p-0">
+                {claudeMdLoading ? (
+                  <div className="flex items-center justify-center py-12 text-zinc-500">
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading...
+                  </div>
+                ) : (
+                  <textarea
+                    value={claudeMd}
+                    onChange={(e) => setClaudeMd(e.target.value)}
+                    disabled={!['owner', 'admin'].includes(role)}
+                    placeholder={`# Project Rules\n\n- All code must be in TypeScript\n- Use functional components\n- Write tests for new features\n\n# Architecture\n\n- Frontend: React + Next.js\n- Backend: Express API\n- Database: PostgreSQL`}
+                    rows={20}
+                    className="w-full resize-y rounded-lg bg-zinc-950 p-4 font-mono text-sm text-zinc-300 placeholder:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-600 disabled:opacity-50"
+                  />
+                )}
+              </CardContent>
+            </Card>
+            <p className="text-xs text-zinc-600">
+              Supports Markdown. The agent writes this to CLAUDE.md in the project root before each execution.
+            </p>
           </div>
         )}
 

@@ -21,6 +21,7 @@ export async function GET(
       where: { id: promptId },
       include: {
         logs: { orderBy: { sequence: 'asc' } },
+        gitCommits: { orderBy: { createdAt: 'asc' } },
         user: { select: { id: true, name: true, email: true } },
       },
     })

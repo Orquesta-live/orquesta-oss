@@ -72,12 +72,33 @@ model Project {
   id              String   @id @default(cuid())
   name            String
   description     String?
+  claudeMd        String?
   publishedToFeed Boolean  @default(false)
   createdAt       DateTime @default(now())
 
   members     ProjectMember[]
   prompts     Prompt[]
   agentTokens AgentToken[]
+  gitCommits  GitCommit[]
+}
+
+model GitCommit {
+  id        String   @id @default(cuid())
+  projectId String
+  promptId  String?
+  hash      String
+  message   String
+  diff      String?
+  filesChanged Int   @default(0)
+  insertions   Int   @default(0)
+  deletions    Int   @default(0)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  prompt  Prompt? @relation(fields: [promptId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([promptId])
 }
 
 model ProjectMember {
@@ -132,9 +153,10 @@ model Prompt {
   startedAt   DateTime?
   completedAt DateTime?
 
-  project Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User       @relation(fields: [userId], references: [id])
-  logs    AgentLog[]
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id])
+  logs       AgentLog[]
+  gitCommits GitCommit[]
 }
 
 model AgentLog {

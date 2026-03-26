@@ -28,12 +28,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // Root redirect
+  // Root: show landing page for guests, redirect to dashboard for logged-in users
   if (pathname === '/') {
     if (sessionCookie) {
       return NextResponse.redirect(new URL('/dashboard', req.url))
     }
-    return NextResponse.redirect(new URL('/login', req.url))
+    return NextResponse.next()
   }
 
   return NextResponse.next()

@@ -71,6 +71,68 @@ socket.on('connect_error', (err) => {
 
 let currentProcess = null
 
+// ── Sync CLAUDE.md before execution ──────────────────────────────────────────
+
+async function syncClaudeMd() {
+  try {
+    const res = await fetch(`${serverUrl}/api/agent/claude-md`, {
+      headers: { 'Authorization': `Bearer ${agentToken}` },
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    if (data.claudeMd) {
+      const fs = require('fs')
+      fs.writeFileSync(path.join(process.cwd(), 'CLAUDE.md'), data.claudeMd, 'utf8')
+      console.log('[agent] CLAUDE.md synced from dashboard')
+    }
+  } catch (err) {
+    console.error('[agent] Failed to sync CLAUDE.md:', err.message)
+  }
+}
+
+// ── Collect git commits after execution ──────────────────────────────────────
+
+async function collectGitCommits(beforeHash) {
+  try {
+    const { execSync } = require('child_process')
+    const log = execSync(
+      `git log ${beforeHash ? beforeHash + '..HEAD' : '-1'} --pretty=format:'%H|||%s' --no-merges 2>/dev/null`,
+      { encoding: 'utf8', timeout: 5000 }
+    ).trim()
+    if (!log) return []
+
+    const commits = []
+    for (const line of log.split('\n')) {
+      const [hash, message] = line.split('|||')
+      if (!hash) continue
+      let diff = '', filesChanged = 0, insertions = 0, deletions = 0
+      try {
+        diff = execSync(`git diff ${hash}~1..${hash} --stat 2>/dev/null`, { encoding: 'utf8', timeout: 5000 }).trim()
+        const shortstat = execSync(`git diff ${hash}~1..${hash} --shortstat 2>/dev/null`, { encoding: 'utf8', timeout: 5000 }).trim()
+        const fm = shortstat.match(/(\d+) file/)
+        const im = shortstat.match(/(\d+) insertion/)
+        const dm = shortstat.match(/(\d+) deletion/)
+        filesChanged = fm ? parseInt(fm[1]) : 0
+        insertions = im ? parseInt(im[1]) : 0
+        deletions = dm ? parseInt(dm[1]) : 0
+      } catch {}
+      commits.push({ hash, message, diff, filesChanged, insertions, deletions })
+    }
+    return commits
+  } catch {
+    return []
+  }
+}
+
+function getHeadHash() {
+  try {
+    const { execSync } = require('child_process')
+    return execSync('git rev-parse HEAD 2>/dev/null', { encoding: 'utf8', timeout: 3000 }).trim()
+  } catch {
+    return null
+  }
+}
+
 socket.on('execute', async ({ promptId, content }) => {
   if (currentProcess) {
     console.log('[agent] Already executing, queuing not yet supported. Skipping.')
@@ -79,6 +141,12 @@ socket.on('execute', async ({ promptId, content }) => {
   }
 
   console.log(`[agent] Executing prompt ${promptId}: ${content.slice(0, 80)}…`)
+
+  // Sync CLAUDE.md before execution
+  await syncClaudeMd()
+
+  // Record HEAD before execution for commit tracking
+  const beforeHash = getHeadHash()
 
   let sequence = 0
   let outputBuffer = ''
@@ -151,6 +219,13 @@ socket.on('execute', async ({ promptId, content }) => {
         }
       })
     })
+
+    // Collect git commits made during execution
+    const commits = await collectGitCommits(beforeHash)
+    if (commits.length > 0) {
+      socket.emit('git:commits', { promptId, commits })
+      console.log(`[agent] Reported ${commits.length} git commit(s)`)
+    }
 
     socket.emit('complete', {
       promptId,

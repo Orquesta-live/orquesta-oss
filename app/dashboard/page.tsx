@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { AgentGrid } from '@/components/features/AgentGrid'
 import { useSocket } from '@/hooks/useSocket'
-import { Plus, FolderOpen, Users, Zap, LogOut, Wifi, WifiOff, LayoutGrid, FolderKanban } from 'lucide-react'
+import { Plus, FolderOpen, Users, Zap, LogOut, Wifi, WifiOff, LayoutGrid, FolderKanban, Play, Loader2 } from 'lucide-react'
 import { formatRelative } from '@/lib/utils'
 
 interface Project {
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [seedingDemo, setSeedingDemo] = useState(false)
 
   // Dashboard view toggle
   const [view, setView] = useState<'projects' | 'grid'>('projects')
@@ -90,6 +92,21 @@ export default function DashboardPage() {
     }
   }
 
+  const seedDemo = async () => {
+    setSeedingDemo(true)
+    try {
+      const res = await fetch('/api/demo/seed', { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        router.push(`/dashboard/projects/${data.projectId}`)
+      } else {
+        await load() // reload in case of 409 (already seeded)
+      }
+    } catch {
+      setSeedingDemo(false)
+    }
+  }
+
   const signOut = async () => {
     await fetch('/api/auth/sign-out', { method: 'POST' })
     router.push('/login')
@@ -100,12 +117,10 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-sm font-bold text-white">
-              O
-            </div>
-            <span className="font-semibold text-white">Orquesta OSS</span>
-          </div>
+          <Link href="/dashboard" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
+            <Image src="/logo.svg" alt="Orquesta" width={28} height={28} priority />
+            <span className="font-semibold text-white">Orquesta <span className="text-zinc-500 font-normal">OSS</span></span>
+          </Link>
           <div className="flex items-center gap-3">
             {/* View toggle */}
             <div className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 p-1">
@@ -233,11 +248,18 @@ export default function DashboardPage() {
                 <div className="rounded-full bg-zinc-800 p-5 mb-4">
                   <FolderOpen className="h-10 w-10 text-zinc-500" />
                 </div>
-                <p className="text-zinc-400 font-medium text-lg">No projects yet</p>
-                <p className="mt-1 text-sm text-zinc-600">Create your first project to get started.</p>
-                <Button onClick={() => setShowCreate(true)} className="mt-6">
-                  <Plus className="h-4 w-4" /> Create Project
-                </Button>
+                <p className="text-zinc-400 font-medium text-lg">Welcome to Orquesta</p>
+                <p className="mt-1 text-sm text-zinc-600 max-w-sm">
+                  Create a project and connect an agent, or try the demo to see what it looks like in action.
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <Button onClick={seedDemo} variant="outline" loading={seedingDemo}>
+                    <Play className="h-4 w-4" /> Try the Demo
+                  </Button>
+                  <Button onClick={() => setShowCreate(true)}>
+                    <Plus className="h-4 w-4" /> Create Project
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
