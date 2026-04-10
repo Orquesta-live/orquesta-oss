@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
       valid: true,
       transport: 'socketio',
       socketUrl: appUrl,
+      wsUrl: appUrl,
+      wsPath: '/api/socket',
       projectId: agentToken.projectId,
       projectName: agentToken.project.name,
       agentTokenId: agentToken.id,
