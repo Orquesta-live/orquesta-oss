@@ -120,7 +120,7 @@ export default function DashboardPage() {
       <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/dashboard" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
-            <Image src="/logo.svg" alt="Orquesta" width={28} height={28} priority />
+            <Image src="/logo-mark.png" alt="Orquesta" width={28} height={28} className="invert" priority />
             <span className="font-semibold text-white">Orquesta <span className="text-zinc-500 font-normal">OSS</span></span>
           </Link>
           <div className="flex items-center gap-3">

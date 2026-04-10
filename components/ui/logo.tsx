@@ -19,11 +19,11 @@ export function Logo({ size = 'md', showText = true, href }: LogoProps) {
   const content = (
     <div className="flex items-center gap-2.5">
       <Image
-        src="/logo.svg"
+        src="/logo-mark.png"
         alt="Orquesta"
         width={s.icon}
         height={s.icon}
-        className="shrink-0"
+        className="shrink-0 invert"
         priority
       />
       {showText && (

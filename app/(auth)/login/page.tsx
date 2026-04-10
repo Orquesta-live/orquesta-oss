@@ -48,7 +48,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
             <Link href="/" className="inline-block mb-4 hover:opacity-90 transition-opacity">
-              <Image src="/logo.svg" alt="Orquesta" width={48} height={48} priority />
+              <Image src="/logo-mark.png" alt="Orquesta" width={48} height={48} className="invert" priority />
             </Link>
             <h1 className="text-2xl font-bold text-white">Welcome back</h1>
             <p className="mt-1 text-sm text-zinc-400">Sign in to your Orquesta workspace</p>

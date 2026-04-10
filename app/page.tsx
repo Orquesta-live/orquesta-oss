@@ -45,7 +45,7 @@ export default function HomePage() {
       <header className="border-b border-zinc-800/50">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <Image src="/logo.svg" alt="Orquesta" width={32} height={32} priority />
+            <Image src="/logo-mark.png" alt="Orquesta" width={32} height={32} className="invert" priority />
             <span className="font-semibold">Orquesta <span className="text-zinc-500 font-normal">OSS</span></span>
           </div>
           <div className="flex items-center gap-4">
