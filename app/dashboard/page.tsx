@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AgentGrid } from '@/components/features/AgentGrid'
+import dynamic from 'next/dynamic'
+const AgentsView = dynamic(() => import('./agents/page'), { ssr: false })
 import { useSocket } from '@/hooks/useSocket'
-import { Plus, FolderOpen, Users, Zap, LogOut, Wifi, WifiOff, LayoutGrid, FolderKanban, Play, Loader2 } from 'lucide-react'
+import { Plus, FolderOpen, Users, Zap, LogOut, Wifi, WifiOff, LayoutGrid, FolderKanban, Play, Loader2, Bot } from 'lucide-react'
 import { formatRelative } from '@/lib/utils'
 
 interface Project {
@@ -37,7 +39,7 @@ export default function DashboardPage() {
   const [seedingDemo, setSeedingDemo] = useState(false)
 
   // Dashboard view toggle
-  const [view, setView] = useState<'projects' | 'grid'>('projects')
+  const [view, setView] = useState<'projects' | 'grid' | 'agents'>('projects')
 
   // For grid view — project picker + socket
   const [selectedProjectId, setSelectedProjectId] = useState('')
@@ -140,7 +142,16 @@ export default function DashboardPage() {
                 }`}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
-                Agent Grid
+                Grid
+              </button>
+              <button
+                onClick={() => setView('agents')}
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                  view === 'agents' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Bot className="h-3.5 w-3.5" />
+                Agents
               </button>
             </div>
             <button
@@ -185,6 +196,11 @@ export default function DashboardPage() {
               <AgentGrid socket={socket} />
             )}
           </div>
+        )}
+
+        {/* ── Agents view ── */}
+        {view === 'agents' && (
+          <AgentsView />
         )}
 
         {/* ── Projects view ── */}
