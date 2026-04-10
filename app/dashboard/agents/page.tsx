@@ -133,7 +133,7 @@ export default function AgentsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-white">{t.name}</span>
-                        <Badge variant={t.agentOnline ? 'default' : 'secondary'} className={`text-[10px] ${
+                        <Badge variant={t.agentOnline ? 'green' : 'default'} className={`text-[10px] ${
                           t.agentOnline ? 'bg-green-500/10 text-green-400 border-green-500/20' : ''
                         }`}>
                           {t.agentOnline ? 'online' : 'offline'}
