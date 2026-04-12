@@ -176,91 +176,129 @@ export default function DashboardPage() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
 
-        {/* ── Agent Grid view ── */}
+        {/* ── Agent Grid view — show ALL agents at once ── */}
         {view === 'grid' && (
           <div className="space-y-4">
-            {!selectedProjectId ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h1 className="text-2xl font-bold text-white">Agent Grid</h1>
-                    <p className="mt-0.5 text-sm text-zinc-400">
-                      {projects.filter(p => p.agentOnline).length} online &middot; {projects.length} total
-                    </p>
-                  </div>
-                </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Agent Grid</h1>
+                <p className="mt-0.5 text-sm text-zinc-400">
+                  {projects.filter(p => p.agentOnline).length} online &middot; {projects.length} projects
+                </p>
+              </div>
+            </div>
 
-                {/* Status summary */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-center">
-                    <p className="text-2xl font-bold text-white">{projects.length}</p>
-                    <p className="text-xs text-zinc-500">Projects</p>
-                  </div>
-                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4 text-center">
-                    <p className="text-2xl font-bold text-green-400">{projects.filter(p => p.agentOnline).length}</p>
-                    <p className="text-xs text-zinc-500">Online</p>
-                  </div>
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-center">
-                    <p className="text-2xl font-bold text-zinc-400">{projects.filter(p => !p.agentOnline).length}</p>
-                    <p className="text-xs text-zinc-500">Offline</p>
-                  </div>
-                </div>
+            {/* Status bar */}
+            <div className="flex items-center gap-4 rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-sm text-white font-medium">{projects.filter(p => p.agentOnline).length} Online</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-zinc-600" />
+                <span className="text-sm text-zinc-400">{projects.filter(p => !p.agentOnline).length} Offline</span>
+              </div>
+              <span className="text-xs text-zinc-600 ml-auto">Click any agent to open an interactive terminal session</span>
+            </div>
 
-                {/* Project grid — click to open terminal */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {projects
-                    .sort((a, b) => (b.agentOnline ? 1 : 0) - (a.agentOnline ? 1 : 0))
-                    .map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => { setSelectedProjectId(p.id); fetchSessionToken(p.id) }}
-                      className={`text-left rounded-xl border p-4 transition-all hover:bg-zinc-800/50 ${
-                        p.agentOnline
-                          ? 'border-green-500/30 bg-green-500/5 hover:border-green-500/50'
-                          : 'border-zinc-800 bg-zinc-900/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-white">{p.name}</span>
-                        <div className="flex items-center gap-1.5">
+            {/* All agents grid — each project with agent is a card */}
+            {projects.length === 0 ? (
+              <div className="text-center py-20 text-zinc-500 text-sm">No projects yet</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {projects
+                  .sort((a, b) => (b.agentOnline ? 1 : 0) - (a.agentOnline ? 1 : 0))
+                  .map(p => (
+                  <div
+                    key={p.id}
+                    className={`rounded-xl border overflow-hidden transition-all ${
+                      p.agentOnline
+                        ? 'border-green-500/30 bg-green-500/5'
+                        : 'border-zinc-800 bg-zinc-900/50'
+                    }`}
+                  >
+                    {/* Agent header */}
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          p.agentOnline ? 'bg-green-500/20' : 'bg-zinc-800'
+                        }`}>
                           {p.agentOnline
-                            ? <><span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /><span className="text-[10px] text-green-400">online</span></>
-                            : <><span className="w-2 h-2 rounded-full bg-zinc-600" /><span className="text-[10px] text-zinc-500">offline</span></>
+                            ? <Wifi className="h-3.5 w-3.5 text-green-400" />
+                            : <WifiOff className="h-3.5 w-3.5 text-zinc-500" />
                           }
                         </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{p.name}</p>
+                          <p className="text-[11px] text-zinc-500">{p.promptCount} prompts &middot; {p.memberCount} members</p>
+                        </div>
                       </div>
-                      {p.description && <p className="text-xs text-zinc-500 line-clamp-1 mb-2">{p.description}</p>}
-                      <div className="flex items-center gap-3 text-[11px] text-zinc-500">
-                        <span><Zap className="inline h-3 w-3 mr-0.5" />{p.promptCount} prompts</span>
-                        <span><Users className="inline h-3 w-3 mr-0.5" />{p.memberCount}</span>
+                      <Badge variant={p.agentOnline ? 'green' : 'default'} className="text-[10px] shrink-0">
+                        {p.agentOnline ? 'online' : 'offline'}
+                      </Badge>
+                    </div>
+
+                    {/* Terminal / Actions */}
+                    {p.agentOnline ? (
+                      <div className="border-t border-green-500/20 px-4 py-2.5 flex items-center gap-2">
+                        <button
+                          onClick={() => { setSelectedProjectId(p.id); fetchSessionToken(p.id) }}
+                          className="flex items-center gap-1.5 rounded-md bg-green-600/20 border border-green-500/30 px-3 py-1.5 text-xs font-medium text-green-400 hover:bg-green-600/30 transition-colors"
+                        >
+                          <LayoutGrid className="h-3 w-3" /> Open Terminal
+                        </button>
+                        <Link
+                          href={`/dashboard/projects/${p.id}`}
+                          className="text-[11px] text-zinc-500 hover:text-white transition-colors ml-auto"
+                        >
+                          Dashboard &rarr;
+                        </Link>
                       </div>
+                    ) : (
+                      <div className="border-t border-zinc-800 px-4 py-2.5 flex items-center gap-2">
+                        <span className="text-[11px] text-zinc-600">Agent not connected</span>
+                        <Link
+                          href={`/dashboard/projects/${p.id}`}
+                          className="text-[11px] text-zinc-500 hover:text-white transition-colors ml-auto"
+                        >
+                          Settings &rarr;
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Terminal view — when a project is selected */}
+            {selectedProjectId && (
+              <div className="fixed inset-0 z-50 bg-zinc-950/95 flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setSelectedProjectId('')}
+                      className="text-sm text-zinc-400 hover:text-white transition-colors"
+                    >
+                      &larr; Close
                     </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setSelectedProjectId('')}
-                    className="text-sm text-zinc-400 hover:text-white transition-colors"
-                  >
-                    &larr; Back
-                  </button>
-                  <h1 className="text-lg font-semibold text-white">
-                    {projects.find(p => p.id === selectedProjectId)?.name || 'Terminal'}
-                  </h1>
+                    <span className="text-sm font-semibold text-white">
+                      {projects.find(p => p.id === selectedProjectId)?.name}
+                    </span>
+                    <Badge variant="green" className="text-[10px]">Interactive Session</Badge>
+                  </div>
                   <select
                     value={selectedProjectId}
                     onChange={e => { setSelectedProjectId(e.target.value); fetchSessionToken(e.target.value) }}
-                    className="ml-auto rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:outline-none"
+                    className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:outline-none"
                   >
-                    {projects.map(p => (
+                    {projects.filter(p => p.agentOnline).map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
                 </div>
-                <AgentGrid socket={socket} />
+                <div className="flex-1 p-4 overflow-hidden">
+                  <AgentGrid socket={socket} />
+                </div>
               </div>
             )}
           </div>
