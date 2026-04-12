@@ -275,6 +275,40 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
                   {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
+
+              {/* Connection modes */}
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] font-medium text-zinc-400 uppercase tracking-wide">Connect with:</p>
+                <div className="space-y-1.5 text-xs">
+                  <div className="rounded bg-zinc-900 border border-zinc-800 p-2">
+                    <p className="text-zinc-300 font-medium mb-0.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-400" /> Claude CLI <span className="text-zinc-500">(Anthropic API)</span>
+                    </p>
+                    <code className="text-green-400 text-[11px] break-all">
+                      ORQUESTA_API_URL={typeof window !== 'undefined' ? window.location.origin : ''} npx orquesta-agent --token {newTokenValue} --cli-preference claude
+                    </code>
+                  </div>
+                  <div className="rounded bg-zinc-900 border border-zinc-800 p-2">
+                    <p className="text-zinc-300 font-medium mb-0.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-400" /> Orquesta CLI <span className="text-zinc-500">(multi-model, Batuta proxy)</span>
+                    </p>
+                    <code className="text-green-400 text-[11px] break-all">
+                      ORQUESTA_API_URL={typeof window !== 'undefined' ? window.location.origin : ''} npx orquesta-agent --token {newTokenValue} --cli-preference orquesta
+                    </code>
+                  </div>
+                  <div className="rounded bg-zinc-900 border border-zinc-800 p-2">
+                    <p className="text-zinc-300 font-medium mb-0.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400" /> Auto <span className="text-zinc-500">(picks best available)</span>
+                    </p>
+                    <code className="text-green-400 text-[11px] break-all">
+                      ORQUESTA_API_URL={typeof window !== 'undefined' ? window.location.origin : ''} npx orquesta-agent --token {newTokenValue}
+                    </code>
+                  </div>
+                </div>
+                <p className="text-[10px] text-zinc-600">
+                  Add <code className="text-zinc-500">--daemon</code> for auto-restart &middot; Add <code className="text-zinc-500">--permission-mode supervised</code> to require approval
+                </p>
+              </div>
             </div>
           )}
 

@@ -70,6 +70,15 @@ export default function DashboardPage() {
     }).catch(() => {})
   }, [])
 
+  const fetchSessionToken = async (projectId: string) => {
+    if (sessionToken) return // Already have it
+    try {
+      const r = await fetch('/api/auth/get-session')
+      const data = await r.json()
+      setSessionToken(data.session?.token || '')
+    } catch {}
+  }
+
   const createProject = async (e: FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
@@ -170,30 +179,89 @@ export default function DashboardPage() {
         {/* ── Agent Grid view ── */}
         {view === 'grid' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white">Agent Grid</h1>
-              <select
-                value={selectedProjectId}
-                onChange={e => setSelectedProjectId(e.target.value)}
-                className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-600"
-              >
-                <option value="">— pick a project —</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-
             {!selectedProjectId ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="rounded-full bg-zinc-800 p-5 mb-4">
-                  <LayoutGrid className="h-10 w-10 text-zinc-500" />
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-white">Agent Grid</h1>
+                    <p className="mt-0.5 text-sm text-zinc-400">
+                      {projects.filter(p => p.agentOnline).length} online &middot; {projects.length} total
+                    </p>
+                  </div>
                 </div>
-                <p className="text-zinc-400 font-medium">Select a project to open the grid</p>
-                <p className="mt-1 text-sm text-zinc-600">Interactive terminal sessions with your connected agent.</p>
-              </div>
+
+                {/* Status summary */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-center">
+                    <p className="text-2xl font-bold text-white">{projects.length}</p>
+                    <p className="text-xs text-zinc-500">Projects</p>
+                  </div>
+                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4 text-center">
+                    <p className="text-2xl font-bold text-green-400">{projects.filter(p => p.agentOnline).length}</p>
+                    <p className="text-xs text-zinc-500">Online</p>
+                  </div>
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-center">
+                    <p className="text-2xl font-bold text-zinc-400">{projects.filter(p => !p.agentOnline).length}</p>
+                    <p className="text-xs text-zinc-500">Offline</p>
+                  </div>
+                </div>
+
+                {/* Project grid — click to open terminal */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {projects
+                    .sort((a, b) => (b.agentOnline ? 1 : 0) - (a.agentOnline ? 1 : 0))
+                    .map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setSelectedProjectId(p.id); fetchSessionToken(p.id) }}
+                      className={`text-left rounded-xl border p-4 transition-all hover:bg-zinc-800/50 ${
+                        p.agentOnline
+                          ? 'border-green-500/30 bg-green-500/5 hover:border-green-500/50'
+                          : 'border-zinc-800 bg-zinc-900/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-white">{p.name}</span>
+                        <div className="flex items-center gap-1.5">
+                          {p.agentOnline
+                            ? <><span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /><span className="text-[10px] text-green-400">online</span></>
+                            : <><span className="w-2 h-2 rounded-full bg-zinc-600" /><span className="text-[10px] text-zinc-500">offline</span></>
+                          }
+                        </div>
+                      </div>
+                      {p.description && <p className="text-xs text-zinc-500 line-clamp-1 mb-2">{p.description}</p>}
+                      <div className="flex items-center gap-3 text-[11px] text-zinc-500">
+                        <span><Zap className="inline h-3 w-3 mr-0.5" />{p.promptCount} prompts</span>
+                        <span><Users className="inline h-3 w-3 mr-0.5" />{p.memberCount}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
             ) : (
-              <AgentGrid socket={socket} />
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedProjectId('')}
+                    className="text-sm text-zinc-400 hover:text-white transition-colors"
+                  >
+                    &larr; Back
+                  </button>
+                  <h1 className="text-lg font-semibold text-white">
+                    {projects.find(p => p.id === selectedProjectId)?.name || 'Terminal'}
+                  </h1>
+                  <select
+                    value={selectedProjectId}
+                    onChange={e => { setSelectedProjectId(e.target.value); fetchSessionToken(e.target.value) }}
+                    className="ml-auto rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-white focus:outline-none"
+                  >
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <AgentGrid socket={socket} />
+              </div>
             )}
           </div>
         )}
