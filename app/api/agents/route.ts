@@ -24,7 +24,7 @@ export async function GET(req: Request) {
       projectId: { in: projectIds },
       revokedAt: null,
     },
-    include: { project: { select: { name: true } } },
+    include: { project: { select: { name: true } }, config: true },
     orderBy: { createdAt: 'desc' },
   })
 
@@ -47,6 +47,16 @@ export async function GET(req: Request) {
       revokedAt: t.revokedAt?.toISOString() || null,
       lastSeen: t.lastSeenAt?.toISOString() || null,
       agentOnline,
+      config: t.config ? {
+        hostname: t.config.hostname,
+        os: t.config.os,
+        nodeVersion: t.config.nodeVersion,
+        agentVersion: t.config.agentVersion,
+        cliPreference: t.config.cliPreference,
+        permissionMode: t.config.permissionMode,
+        workingDir: t.config.workingDir,
+        lastConnectedAt: t.config.lastConnectedAt?.toISOString() || null,
+      } : null,
     }
   })
 

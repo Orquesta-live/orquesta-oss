@@ -74,8 +74,44 @@ async function handleAgentConnection(socket: Socket) {
     data: { lastSeenAt: new Date() },
   })
 
+  // Store agent config from handshake query
+  const agentInfo = socket.handshake.query as Record<string, string>
+  try {
+    await db.agentConfig.upsert({
+      where: { agentTokenId: agentToken.id },
+      create: {
+        agentTokenId: agentToken.id,
+        projectId: agentToken.projectId,
+        hostname: agentInfo.hostname || null,
+        os: agentInfo.os || null,
+        nodeVersion: agentInfo.nodeVersion || null,
+        agentVersion: agentInfo.agentVersion || null,
+        cliPreference: agentInfo.cliPreference || 'auto',
+        permissionMode: agentInfo.permissionMode || 'auto',
+        workingDir: agentInfo.workingDir || null,
+        lastConnectedAt: new Date(),
+      },
+      update: {
+        hostname: agentInfo.hostname || undefined,
+        os: agentInfo.os || undefined,
+        nodeVersion: agentInfo.nodeVersion || undefined,
+        agentVersion: agentInfo.agentVersion || undefined,
+        cliPreference: agentInfo.cliPreference || undefined,
+        permissionMode: agentInfo.permissionMode || undefined,
+        workingDir: agentInfo.workingDir || undefined,
+        lastConnectedAt: new Date(),
+      },
+    })
+  } catch (err) {
+    console.error('[socket] Failed to save agent config:', err)
+  }
+
   // Notify dashboard that agent came online
-  socket.to(room).emit('agent:online', { agentTokenId: agentToken.id, projectId: agentToken.projectId })
+  socket.to(room).emit('agent:online', {
+    agentTokenId: agentToken.id,
+    projectId: agentToken.projectId,
+    config: { hostname: agentInfo.hostname, cliPreference: agentInfo.cliPreference, permissionMode: agentInfo.permissionMode },
+  })
   console.log(`[socket] Agent connected: ${agentToken.name} (project ${agentToken.projectId})`)
 
   // ── Agent → Server events ─────────────────────────────────────────────────

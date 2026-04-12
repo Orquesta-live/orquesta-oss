@@ -76,10 +76,11 @@ model Project {
   publishedToFeed Boolean  @default(false)
   createdAt       DateTime @default(now())
 
-  members     ProjectMember[]
-  prompts     Prompt[]
-  agentTokens AgentToken[]
-  gitCommits  GitCommit[]
+  members      ProjectMember[]
+  prompts      Prompt[]
+  agentTokens  AgentToken[]
+  gitCommits   GitCommit[]
+  agentConfigs AgentConfig[]
 }
 
 model GitCommit {
@@ -123,7 +124,8 @@ model AgentToken {
   createdAt DateTime  @default(now())
   revokedAt DateTime?
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  config  AgentConfig?
 }
 
 model CliToken {
@@ -171,4 +173,22 @@ model AgentLog {
   prompt Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
 
   @@index([promptId, sequence])
+}
+
+// Agent runtime config (stored when agent connects)
+model AgentConfig {
+  id              String   @id @default(cuid())
+  agentTokenId    String   @unique
+  projectId       String
+  hostname        String?
+  os              String?
+  nodeVersion     String?
+  agentVersion    String?
+  cliPreference   String   @default("auto")  // auto | claude | orquesta
+  permissionMode  String   @default("auto")  // auto | supervised
+  workingDir      String?
+  lastConnectedAt DateTime @default(now())
+
+  agentToken AgentToken @relation(fields: [agentTokenId], references: [id], onDelete: Cascade)
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
