@@ -29,8 +29,9 @@ function CopyButton({ text }: { text: string }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <div className="flex items-start gap-2 rounded-md bg-zinc-950 px-3 py-2.5">
-      <code className="flex-1 text-xs text-zinc-300 font-mono whitespace-pre-wrap break-all">
+    <div className="group flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5 transition-colors hover:border-zinc-700">
+      <span className="mt-px shrink-0 select-none font-mono text-xs text-green-500">$</span>
+      <code className="flex-1 whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-zinc-300">
         {children}
       </code>
       <CopyButton text={children} />
@@ -59,7 +60,13 @@ export function ConnectionGuide({ appUrl, tokenValue }: ConnectionGuideProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Connect your agent</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">Connect your agent</CardTitle>
+            <Badge variant="green" className="gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-400 shadow-[0_0_6px_theme(colors.green.400)]" />
+              Public URL ready
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-zinc-400">
@@ -139,13 +146,19 @@ export function ConnectionGuide({ appUrl, tokenValue }: ConnectionGuideProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
-          Connect your agent
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            Connect your agent
+          </CardTitle>
+          <Badge variant="yellow" className="gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+            Local only
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent className="space-y-2 p-0 pb-2">
         <p className="px-5 pb-1 text-sm text-zinc-400">
-          Your server is running on <code className="text-green-400">localhost</code>. Choose how to make it reachable from a remote machine:
+          Your server is running on <code className="font-mono text-green-400">localhost</code>. Choose how to make it reachable from a remote machine:
         </p>
 
         {options.map((opt) => (
@@ -164,18 +177,18 @@ export function ConnectionGuide({ appUrl, tokenValue }: ConnectionGuideProps) {
             </button>
 
             {openOption === opt.id && (
-              <div className="px-5 pb-4 space-y-3">
+              <div className="space-y-3 px-5 pb-4">
                 <p className="text-xs text-zinc-500">{opt.description}</p>
                 <ol className="space-y-2.5">
                   {opt.steps.map((step, i) => (
-                    <li key={i} className="space-y-1">
-                      <p className="text-xs text-zinc-400">
-                        <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-bold text-zinc-300">
+                    <li key={i} className="space-y-1.5">
+                      <p className="flex items-center gap-2 text-xs text-zinc-300">
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 font-mono text-[10px] font-bold text-zinc-300">
                           {i + 1}
                         </span>
                         {step.label}
                       </p>
-                      {step.code && <CodeBlock>{step.code}</CodeBlock>}
+                      {step.code && <div className="pl-7"><CodeBlock>{step.code}</CodeBlock></div>}
                     </li>
                   ))}
                 </ol>

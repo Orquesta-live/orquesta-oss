@@ -69,7 +69,15 @@ function StatusBadge({ status }: { status: string }) {
   const map: Record<string, 'green' | 'red' | 'yellow' | 'default'> = {
     completed: 'green', failed: 'red', running: 'yellow', pending: 'default',
   }
-  return <Badge variant={map[status] ?? 'default'}>{status}</Badge>
+  return <Badge variant={map[status] ?? 'default'} className="capitalize">{status}</Badge>
+}
+
+// Left accent stripe color, keyed on status — lets a card's state read at a glance.
+function statusStripe(status: string): string {
+  if (status === 'completed') return 'before:bg-green-500/70'
+  if (status === 'failed') return 'before:bg-red-500/70'
+  if (status === 'running') return 'before:bg-yellow-500/70'
+  return 'before:bg-zinc-700'
 }
 
 function formatCost(cents?: number): string {
@@ -466,9 +474,9 @@ function PromptCard({ prompt, socket, isLatestRunning }: { prompt: Prompt; socke
   const userName = prompt.user?.name || prompt.user?.email || 'Unknown'
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+    <div className={`elevated relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/70 transition-colors hover:border-zinc-700 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:content-[''] ${statusStripe(prompt.status)}`}>
       {/* Header */}
-      <button onClick={toggle} className="flex w-full items-start gap-3 p-4 text-left hover:bg-zinc-800/30 transition-colors">
+      <button onClick={toggle} className="flex w-full items-start gap-3 p-4 pl-5 text-left transition-colors hover:bg-zinc-800/30">
         <div className="mt-0.5 shrink-0">
           {expanded ? <ChevronDown className="h-4 w-4 text-zinc-500" /> : <ChevronRight className="h-4 w-4 text-zinc-500" />}
         </div>
@@ -478,30 +486,30 @@ function PromptCard({ prompt, socket, isLatestRunning }: { prompt: Prompt; socke
 
         <div className="flex-1 min-w-0">
           {/* Who + when */}
-          <div className="flex items-center gap-2 mb-1">
+          <div className="mb-1 flex items-center gap-2">
             <span className="text-xs font-medium text-zinc-300">{userName}</span>
-            <span className="text-[11px] text-zinc-600">{formatRelative(prompt.createdAt)}</span>
+            <span className="font-mono text-[11px] text-zinc-500">{formatRelative(prompt.createdAt)}</span>
             {prompt.source && prompt.source !== 'dashboard' && (
-              <Badge variant="default" className="text-[9px] px-1.5 py-0">{prompt.source}</Badge>
+              <Badge variant="outline" className="px-1.5 py-0 font-mono text-[9px]">{prompt.source}</Badge>
             )}
           </div>
 
           {/* Prompt content */}
-          <p className="text-sm text-white leading-relaxed">{prompt.content}</p>
+          <p className="text-sm leading-relaxed text-white">{prompt.content}</p>
 
           {/* Status bar */}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusBadge status={prompt.status} />
             {duration && (
-              <span className="flex items-center gap-1 text-[11px] text-zinc-500">
+              <span className="flex items-center gap-1 font-mono text-[11px] text-zinc-500">
                 <Timer className="h-3 w-3" />{duration}
               </span>
             )}
             {prompt.tokensUsed != null && prompt.tokensUsed > 0 && (
-              <span className="text-[11px] text-zinc-500">{prompt.tokensUsed.toLocaleString()} tokens</span>
+              <span className="font-mono text-[11px] text-zinc-500">{prompt.tokensUsed.toLocaleString()} tokens</span>
             )}
             {cost && (
-              <span className="text-[11px] text-zinc-500">{cost}</span>
+              <span className="font-mono text-[11px] text-zinc-500">{cost}</span>
             )}
           </div>
         </div>
@@ -519,9 +527,9 @@ function PromptCard({ prompt, socket, isLatestRunning }: { prompt: Prompt; socke
                 <Loader2 className="h-3 w-3 animate-spin" /> Loading logs...
               </div>
             ) : logs.length === 0 ? (
-              <p className="pt-3 text-xs text-zinc-600">No logs recorded for this prompt.</p>
+              <p className="pt-3 font-mono text-xs text-zinc-600">No logs recorded for this prompt.</p>
             ) : (
-              <div ref={logsContainerRef} className="mt-3 space-y-1.5 rounded-lg bg-zinc-950 border border-zinc-800 p-3 max-h-[500px] overflow-y-auto">
+              <div ref={logsContainerRef} className="mt-3 max-h-[500px] space-y-1.5 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 font-mono">
                 {logs.map((log) => {
                   const parsed = parseLogMessage(log)
                   if (!parsed.content) return null
@@ -538,12 +546,12 @@ function PromptCard({ prompt, socket, isLatestRunning }: { prompt: Prompt; socke
 
             {/* Final result */}
             {prompt.result && (
-              <div className="mt-3 rounded-lg bg-green-950/30 border border-green-900/40 p-3">
-                <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="mt-3 rounded-lg border border-green-900/40 bg-green-950/20 p-3">
+                <div className="mb-1.5 flex items-center gap-1.5">
                   <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                  <span className="text-xs font-medium text-green-400">Result</span>
+                  <span className="font-mono text-xs uppercase tracking-wider text-green-400">Result</span>
                 </div>
-                <p className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">{prompt.result}</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">{prompt.result}</p>
               </div>
             )}
 
@@ -632,25 +640,25 @@ export function PromptTimeline({ projectId, socket }: PromptTimelineProps) {
     <div className="space-y-3">
       {/* Search + filter */}
       {prompts.length > 0 && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search prompts..."
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 pl-9 pr-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+              placeholder="Search prompts…"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900/60 py-2 pl-9 pr-3 text-sm text-white shadow-inner shadow-black/20 transition-colors placeholder:text-zinc-500 hover:border-zinc-600 focus:border-green-600/60 focus:outline-none focus:ring-2 focus:ring-green-600/40"
             />
           </div>
-          <div className="flex items-center gap-0.5 rounded-lg border border-zinc-700 bg-zinc-800 p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg border border-zinc-800 bg-zinc-900/60 p-0.5">
             {STATUS_OPTIONS.map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
                 className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   statusFilter === s
-                    ? 'bg-zinc-700 text-white'
+                    ? 'bg-zinc-800 text-white shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
@@ -662,9 +670,10 @@ export function PromptTimeline({ projectId, socket }: PromptTimelineProps) {
       )}
 
       {prompts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-zinc-500">No prompts yet.</p>
-          <p className="mt-1 text-sm text-zinc-600">Submit a prompt above to get started.</p>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 py-16 text-center">
+          <Terminal className="mb-3 h-8 w-8 text-zinc-600" />
+          <p className="text-sm font-medium text-zinc-400">No prompts yet</p>
+          <p className="mt-1 text-sm text-zinc-600">Submit one below to get started.</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">

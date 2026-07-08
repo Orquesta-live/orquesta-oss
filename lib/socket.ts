@@ -209,8 +209,13 @@ async function handleAgentConnection(socket: Socket) {
   // Interactive session events — forward to dashboard
   socket.on('session:started', (data) => socket.to(room).emit('session:started', data))
   socket.on('session:output', (data) => socket.to(room).emit('session:output', data))
+  socket.on('session:meta', (data) => socket.to(room).emit('session:meta', data))
   socket.on('session:ended', (data) => socket.to(room).emit('session:ended', data))
   socket.on('session:error', (data) => socket.to(room).emit('session:error', data))
+
+  // Hosted-hook enrollment results — forward to dashboard
+  socket.on('hook:result', (data) => socket.to(room).emit('hook:result', data))
+  socket.on('hook:status_result', (data) => socket.to(room).emit('hook:status_result', data))
 
   socket.on('disconnect', () => {
     socket.to(room).emit('agent:offline', { agentTokenId: agentToken.id, projectId: agentToken.projectId })
@@ -277,6 +282,21 @@ async function handleDashboardConnection(socket: Socket) {
   socket.on('session:force_end', (data) => {
     const room = `project-${socket.data.projectId}`
     socket.to(room).emit('session:force_end', data)
+  })
+
+  // Dashboard → Agent: hosted-hook enrollment (configure `.orquesta.json` +
+  // `.claude/settings.json` so local CLI sessions report to a hosted project).
+  socket.on('hook:init', (data) => {
+    const room = `project-${socket.data.projectId}`
+    socket.to(room).emit('hook:init', data)
+  })
+  socket.on('hook:init-project', (data) => {
+    const room = `project-${socket.data.projectId}`
+    socket.to(room).emit('hook:init-project', data)
+  })
+  socket.on('hook:status', (data) => {
+    const room = `project-${socket.data.projectId}`
+    socket.to(room).emit('hook:status', data)
   })
 }
 

@@ -163,7 +163,7 @@ socket.on('execute', async ({ promptId, content }) => {
       const claudePath = process.env.CLAUDE_PATH || 'claude'
       const proc = spawn(
         claudePath,
-        ['--print', '--output-format', 'stream-json', '-p', content],
+        ['--print', '--verbose', '--output-format', 'stream-json', '-p', content],
         {
           stdio: ['ignore', 'pipe', 'pipe'],
           env: { ...process.env },
@@ -300,56 +300,307 @@ function handleStreamEvent(event, emitLog, setTokens) {
 
 const sessions = new Map()
 
-socket.on('session:start', ({ sessionId, cellId, rows = 24, cols = 80 }) => {
-  try {
-    const pty = require('node-pty')
-    const shell = process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash')
+// Resolve a PTY binding once. Prefer the prebuilt multiarch build (ships N-API
+// binaries for linux/macOS/win — no compiler needed); fall back to a plain
+// `node-pty` install if someone has that instead.
+function loadPty() {
+  for (const name of ['@homebridge/node-pty-prebuilt-multiarch', 'node-pty']) {
+    try { return require(name) } catch { /* try next */ }
+  }
+  return null
+}
+const ptyModule = loadPty()
 
-    const term = pty.spawn(shell, [], {
+// Map a per-pane cliType to the program the pane hosts. Falls back to the
+// default shell so an unknown/unavailable CLI still yields a usable terminal.
+function resolveSessionCommand(cliType) {
+  switch ((cliType || 'shell').toLowerCase()) {
+    case 'claude':
+      return { command: process.env.CLAUDE_PATH || 'claude', args: [] }
+    case 'orquesta':
+      return { command: process.env.ORQUESTA_CLI_PATH || 'orquesta', args: [] }
+    case 'kimi':
+      return { command: process.env.KIMI_PATH || 'kimi', args: [] }
+    case 'opencode':
+      return { command: process.env.OPENCODE_PATH || 'opencode', args: [] }
+    case 'shell':
+    default:
+      return {
+        command: process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash'),
+        args: [],
+      }
+  }
+}
+
+// Current git branch of a working dir (null if not a repo / git missing).
+function getGitBranch(cwd) {
+  try {
+    const { execSync } = require('child_process')
+    return (
+      execSync('git rev-parse --abbrev-ref HEAD', {
+        cwd,
+        encoding: 'utf8',
+        timeout: 3000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim() || null
+    )
+  } catch {
+    return null
+  }
+}
+
+function emitSessionMeta(sessionId) {
+  const s = sessions.get(sessionId)
+  if (!s) return
+  socket.emit('session:meta', {
+    sessionId,
+    cliType: s.cliType,
+    cwd: s.cwd,
+    branch: s.branch,
+  })
+}
+
+socket.on('session:start', ({ sessionId, cellId, rows = 24, cols = 80, cliType = 'shell', cwd, hostedApiUrl, hostedToken }) => {
+  try {
+    const pty = ptyModule
+    if (!pty) throw new Error('no PTY binding')
+    const { command, args } = resolveSessionCommand(cliType)
+    const sessionCwd = cwd || process.env.ORQUESTA_WORKDIR || process.cwd()
+
+    // Hosted-hook belt-and-suspenders: when the pane is configured to report to
+    // a hosted Orquesta project, point the CLI's own reporter at it. The real
+    // enrollment is the `.orquesta.json` that `orquesta-agent init` drops in the
+    // cwd (both claude's .claude/settings.json hooks and orquesta-cli's
+    // prompt-reporter key off it); these env vars just make the target explicit
+    // so a stale default can't send logs to the wrong backend.
+    const sessionEnv = { ...process.env }
+    if (hostedApiUrl) sessionEnv.ORQUESTA_API_URL = hostedApiUrl
+    if (hostedToken) sessionEnv.ORQUESTA_TOKEN = hostedToken
+
+    const term = pty.spawn(command, args, {
       name: 'xterm-color',
       rows,
       cols,
-      cwd: process.env.HOME || process.cwd(),
-      env: process.env,
+      cwd: sessionCwd,
+      env: sessionEnv,
     })
 
-    sessions.set(sessionId, term)
+    const meta = { term, cliType, cwd: sessionCwd, branch: getGitBranch(sessionCwd), branchTimer: null }
+    sessions.set(sessionId, meta)
 
     term.onData((data) => {
       socket.emit('session:output', { sessionId, data })
     })
 
     term.onExit(() => {
+      if (meta.branchTimer) clearInterval(meta.branchTimer)
       sessions.delete(sessionId)
       socket.emit('session:ended', { sessionId })
     })
 
     socket.emit('session:started', { sessionId, pid: term.pid })
-    console.log(`[agent] Session started: ${sessionId}`)
+    emitSessionMeta(sessionId)
+
+    // Keep the branch chip live — the user checks out branches inside the pane.
+    meta.branchTimer = setInterval(() => {
+      const branch = getGitBranch(meta.cwd)
+      if (branch !== meta.branch) {
+        meta.branch = branch
+        emitSessionMeta(sessionId)
+      }
+    }, 5000)
+
+    console.log(`[agent] Session started: ${sessionId} (${cliType} @ ${sessionCwd})`)
   } catch (err) {
-    console.error('[agent] node-pty not available:', err.message)
+    console.error('[agent] PTY not available:', err.message)
     socket.emit('session:error', {
       sessionId,
-      message: 'node-pty not installed. Run: npm install -g node-pty',
+      message: 'No PTY binding installed. Run: npm install @homebridge/node-pty-prebuilt-multiarch',
     })
   }
 })
 
 socket.on('session:input', ({ sessionId, data }) => {
-  const term = sessions.get(sessionId)
-  if (term) term.write(data)
+  const s = sessions.get(sessionId)
+  if (s) s.term.write(data)
 })
 
 socket.on('session:resize', ({ sessionId, rows, cols }) => {
-  const term = sessions.get(sessionId)
-  if (term) term.resize(cols, rows)
+  const s = sessions.get(sessionId)
+  if (s) s.term.resize(cols, rows)
 })
 
 socket.on('session:force_end', ({ sessionId }) => {
-  const term = sessions.get(sessionId)
-  if (term) {
-    term.kill()
+  const s = sessions.get(sessionId)
+  if (s) {
+    if (s.branchTimer) clearInterval(s.branchTimer)
+    s.term.kill()
     sessions.delete(sessionId)
+  }
+})
+
+// ── Hosted hook (report local CLI sessions to a hosted Orquesta project) ──────
+//
+// The dashboard's "Connect to Hosted" panel drives these. The heavy lifting is
+// done by the PUBLIC `orquesta-agent init` CLI: it validates the token against
+// the hosted API, writes `.orquesta.json` (projectId + token + apiUrl) and
+// `.claude/settings.json` hooks into the target dir. From then on BOTH CLIs
+// self-report to the hosted backend: claude via the settings.json hooks,
+// orquesta-cli via its built-in prompt-reporter — both key off `.orquesta.json`.
+
+const fsp = require('fs/promises')
+
+function hookTargetDir(cwd) {
+  return cwd || process.env.ORQUESTA_WORKDIR || process.cwd()
+}
+
+// Resolve the orquesta-agent binary once (PATH-based; works for standalone too).
+function resolveOrquestaAgentBin() {
+  try {
+    const { execSync } = require('child_process')
+    const probe = process.platform === 'win32' ? 'where orquesta-agent' : 'command -v orquesta-agent'
+    const resolved = execSync(probe, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split(/\r?\n/)[0]
+      .trim()
+    return resolved || null
+  } catch {
+    return null
+  }
+}
+
+// Read the enrolled project (never the token) from an existing .orquesta.json.
+async function readHookStatus(dir) {
+  try {
+    const raw = await fsp.readFile(path.join(dir, '.orquesta.json'), 'utf8')
+    const cfg = JSON.parse(raw)
+    return {
+      configured: true,
+      projectId: cfg.projectId || null,
+      projectName: cfg.projectName || null,
+      apiUrl: cfg.apiUrl || null,
+    }
+  } catch {
+    return { configured: false }
+  }
+}
+
+// Dashboard asks: is this dir already hooked, and to which hosted project?
+socket.on('hook:status', async ({ cwd } = {}) => {
+  const dir = hookTargetDir(cwd)
+  const status = await readHookStatus(dir)
+  socket.emit('hook:status_result', { cwd: dir, ...status })
+})
+
+// Dashboard asks: enrol this dir into a hosted project via `orquesta-agent init`.
+socket.on('hook:init', async ({ token, apiUrl, cwd } = {}) => {
+  const dir = hookTargetDir(cwd)
+  const emitFail = (message) => socket.emit('hook:result', { ok: false, cwd: dir, message })
+
+  if (!token || typeof token !== 'string') return emitFail('A hosted token (oat_… or oclt_…) is required.')
+
+  const bin = resolveOrquestaAgentBin()
+  if (!bin) {
+    return emitFail('orquesta-agent is not installed on this machine. Install it: npm i -g orquesta-agent')
+  }
+
+  const initArgs = ['init', '--token', token]
+  if (apiUrl) initArgs.push('--api-url', apiUrl)
+
+  const child = spawn(bin, initArgs, { cwd: dir, env: process.env })
+  let out = ''
+  child.stdout.on('data', (d) => { out += d.toString() })
+  child.stderr.on('data', (d) => { out += d.toString() })
+
+  child.on('error', (err) => emitFail(`Could not run orquesta-agent init: ${err.message}`))
+
+  child.on('close', async (code) => {
+    if (code !== 0) {
+      // init prints the reason (invalid token / unreachable host) to stdout.
+      const reason = out.replace(/\s+/g, ' ').trim().slice(-240) || `exited ${code}`
+      return emitFail(reason)
+    }
+    const status = await readHookStatus(dir)
+    socket.emit('hook:result', {
+      ok: true,
+      cwd: dir,
+      message: status.projectName
+        ? `Hooked to “${status.projectName}” on the hosted backend.`
+        : 'Hook configured on the hosted backend.',
+      ...status,
+    })
+    console.log(`[agent] Hosted hook configured in ${dir}${status.projectName ? ` → ${status.projectName}` : ''}`)
+  })
+})
+
+// Direct project enrollment — writes .orquesta.json + .claude/settings.json
+// without requiring the orquesta-agent binary. Used when the user selects a
+// specific project from the per-pane dropdown.
+socket.on('hook:init-project', async ({ token, apiUrl, projectId, projectName, cwd } = {}) => {
+  const dir = hookTargetDir(cwd)
+  const emitResult = (ok, message, extra = {}) =>
+    socket.emit('hook:result', { ok, cwd: dir, message, ...extra })
+
+  if (!token || !projectId) {
+    return emitResult(false, 'Token and projectId are required.')
+  }
+
+  try {
+    const orquestaJson = path.join(dir, '.orquesta.json')
+    const config = {
+      projectId,
+      ...(projectName ? { projectName } : {}),
+      token,
+      apiUrl: apiUrl || 'https://getorquesta.com',
+    }
+    await fsp.writeFile(orquestaJson, JSON.stringify(config, null, 2) + '\n')
+
+    // .gitignore — ensure .orquesta.json is listed
+    const gitignorePath = path.join(dir, '.gitignore')
+    try {
+      const existing = await fsp.readFile(gitignorePath, 'utf8').catch(() => '')
+      if (!existing.includes('.orquesta.json')) {
+        await fsp.appendFile(gitignorePath, '\n# Orquesta hook config (contains token)\n.orquesta.json\n')
+      }
+    } catch {}
+
+    // .claude/settings.json — add hooks if orquesta-agent binary is available
+    const bin = resolveOrquestaAgentBin()
+    if (bin) {
+      const claudeDir = path.join(dir, '.claude')
+      const settingsPath = path.join(claudeDir, 'settings.json')
+      await fsp.mkdir(claudeDir, { recursive: true })
+
+      let settings = {}
+      try { settings = JSON.parse(await fsp.readFile(settingsPath, 'utf8')) } catch {}
+      if (!settings.hooks) settings.hooks = {}
+
+      const hookCmd = (event) => `${bin} hook ${event}`
+      const hookEntries = {
+        UserPromptSubmit: [{ hooks: [{ type: 'command', command: hookCmd('prompt-submit') }] }],
+        PostToolUse: [{ matcher: 'Edit|Write|Bash|Read|Glob|Grep', hooks: [{ type: 'command', command: hookCmd('tool-use'), async: true }] }],
+        Stop: [{ hooks: [{ type: 'command', command: hookCmd('stop') }] }],
+      }
+
+      for (const [event, config] of Object.entries(hookEntries)) {
+        if (!settings.hooks[event]) {
+          settings.hooks[event] = config
+        } else if (Array.isArray(settings.hooks[event])) {
+          const has = settings.hooks[event].some(e =>
+            e.hooks?.some(h => h.command?.includes('orquesta-agent hook'))
+          )
+          if (!has) settings.hooks[event] = [...settings.hooks[event], ...config]
+        }
+      }
+
+      await fsp.writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n')
+    }
+
+    emitResult(true, `Hooked to "${projectName || projectId}" on the hosted backend.`, {
+      configured: true, projectId, projectName,
+    })
+    console.log(`[agent] Hook configured for project "${projectName || projectId}" in ${dir}`)
+  } catch (err) {
+    emitResult(false, `Failed to write hook files: ${err.message}`)
   }
 })
 

@@ -12,7 +12,7 @@ import { AgentGrid } from '@/components/features/AgentGrid'
 import dynamic from 'next/dynamic'
 const AgentsView = dynamic(() => import('./agents/page'), { ssr: false })
 import { useSocket } from '@/hooks/useSocket'
-import { Plus, FolderOpen, Users, Zap, LogOut, Wifi, WifiOff, LayoutGrid, FolderKanban, Play, Loader2, Bot } from 'lucide-react'
+import { Plus, FolderOpen, Users, Zap, LogOut, Wifi, WifiOff, LayoutGrid, FolderKanban, Play, Loader2, Bot, Terminal } from 'lucide-react'
 import { formatRelative } from '@/lib/utils'
 
 interface Project {
@@ -123,49 +123,49 @@ export default function DashboardPage() {
     router.push('/login')
   }
 
+  const navItems = [
+    { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
+    { id: 'grid' as const, label: 'Grid', icon: LayoutGrid },
+    { id: 'agents' as const, label: 'Agents', icon: Bot },
+  ]
+
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen bg-console">
       {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
+      <header className="glass sticky top-0 z-40 border-x-0 border-t-0">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
+          <Link href="/dashboard" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
             <Image src="/logo-mark.png" alt="Orquesta" width={28} height={28} className="invert" priority />
-            <span className="font-semibold text-white">Orquesta <span className="text-zinc-500 font-normal">OSS</span></span>
+            <span className="text-[15px] font-bold tracking-tight text-white">
+              Orquesta <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-green-400/80">OSS</span>
+            </span>
           </Link>
           <div className="flex items-center gap-3">
             {/* View toggle */}
-            <div className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 p-1">
-              <button
-                onClick={() => setView('projects')}
-                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                  view === 'projects' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <FolderKanban className="h-3.5 w-3.5" />
-                Projects
-              </button>
-              <button
-                onClick={() => setView('grid')}
-                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                  view === 'grid' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Grid
-              </button>
-              <button
-                onClick={() => setView('agents')}
-                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                  view === 'agents' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Bot className="h-3.5 w-3.5" />
-                Agents
-              </button>
+            <div className="flex items-center gap-1 rounded-xl border border-zinc-800/80 bg-zinc-950/50 p-1">
+              {navItems.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setView(id)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                    view === id
+                      ? 'glow-accent bg-green-500/15 text-green-300 ring-1 ring-inset ring-green-500/40'
+                      : 'text-zinc-400 hover:bg-zinc-800/70 hover:text-white'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
             </div>
+            <Link href="/dashboard/terminal">
+              <Button variant="gradient" size="sm">
+                <Terminal className="h-4 w-4" /> Terminal
+              </Button>
+            </Link>
             <button
               onClick={signOut}
-              className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition-colors hover:text-white"
             >
               <LogOut className="h-4 w-4" />
               Sign out
@@ -178,27 +178,26 @@ export default function DashboardPage() {
 
         {/* ── Agent Grid view — show ALL agents at once ── */}
         {view === 'grid' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-white">Agent Grid</h1>
-                <p className="mt-0.5 text-sm text-zinc-400">
-                  {projects.filter(p => p.agentOnline).length} online &middot; {projects.length} projects
-                </p>
-              </div>
+          <div className="space-y-6 animate-rise">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-green-400/80">Live infrastructure</p>
+              <h1 className="mt-1.5 text-4xl font-bold tracking-tight text-white">Agent Grid</h1>
             </div>
 
             {/* Status bar */}
-            <div className="flex items-center gap-4 rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+            <div className="glow-accent flex items-center gap-5 rounded-xl border border-green-500/20 bg-zinc-900/80 px-5 py-3.5">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-sm text-white font-medium">{projects.filter(p => p.agentOnline).length} Online</span>
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-400" />
+                </span>
+                <span className="text-sm font-semibold text-white"><span className="font-mono tabular-nums text-green-300">{projects.filter(p => p.agentOnline).length}</span> online</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-zinc-600" />
-                <span className="text-sm text-zinc-400">{projects.filter(p => !p.agentOnline).length} Offline</span>
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-600" />
+                <span className="text-sm text-zinc-400"><span className="font-mono tabular-nums text-zinc-300">{projects.filter(p => !p.agentOnline).length}</span> offline</span>
               </div>
-              <span className="text-xs text-zinc-600 ml-auto">Click any agent to open an interactive terminal session</span>
+              <span className="ml-auto font-mono text-xs text-zinc-600">click an agent → interactive terminal</span>
             </div>
 
             {/* All agents grid — each project with agent is a card */}
@@ -211,7 +210,7 @@ export default function DashboardPage() {
                   .map(p => (
                   <div
                     key={p.id}
-                    className={`rounded-xl border overflow-hidden transition-all ${
+                    className={`card-glow elevated rounded-xl border overflow-hidden ${
                       p.agentOnline
                         ? 'border-green-500/30 bg-green-500/5'
                         : 'border-zinc-800 bg-zinc-900/50'
@@ -273,7 +272,7 @@ export default function DashboardPage() {
             {/* Terminal view — when a project is selected */}
             {selectedProjectId && (
               <div className="fixed inset-0 z-50 bg-zinc-950/95 flex flex-col">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900">
+                <div className="glass flex items-center justify-between border-x-0 border-t-0 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setSelectedProjectId('')}
@@ -311,15 +310,16 @@ export default function DashboardPage() {
 
         {/* ── Projects view ── */}
         {view === 'projects' && (
-          <>
-            <div className="flex items-center justify-between mb-6">
+          <div className="animate-rise">
+            <div className="flex items-end justify-between mb-7">
               <div>
-                <h1 className="text-2xl font-bold text-white">Projects</h1>
-                <p className="mt-0.5 text-sm text-zinc-400">
-                  {projects.length} project{projects.length !== 1 ? 's' : ''}
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-green-400/80">Workspace</p>
+                <h1 className="mt-1.5 text-4xl font-bold tracking-tight text-white">Projects</h1>
+                <p className="mt-1.5 font-mono text-xs text-zinc-500">
+                  <span className="tabular-nums text-zinc-300">{projects.length}</span> project{projects.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <Button onClick={() => setShowCreate(true)} size="sm">
+              <Button onClick={() => setShowCreate(true)} variant="gradient">
                 <Plus className="h-4 w-4" /> New Project
               </Button>
             </div>
@@ -327,8 +327,8 @@ export default function DashboardPage() {
             {/* Create project modal */}
             {showCreate && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
-                  <h2 className="text-lg font-semibold text-white mb-4">New Project</h2>
+                <div className="glass animate-rise w-full max-w-md rounded-2xl p-6">
+                  <h2 className="mb-5 text-xl font-bold tracking-tight text-white">New Project</h2>
                   <form onSubmit={createProject} className="space-y-4">
                     <Input
                       label="Name"
@@ -350,7 +350,7 @@ export default function DashboardPage() {
                       <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>
                         Cancel
                       </Button>
-                      <Button type="submit" loading={creating} disabled={!name.trim()}>
+                      <Button type="submit" variant="gradient" loading={creating} disabled={!name.trim()}>
                         Create Project
                       </Button>
                     </div>
@@ -362,23 +362,23 @@ export default function DashboardPage() {
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-40 rounded-lg bg-zinc-900 animate-pulse" />
+                  <div key={i} className="h-40 rounded-xl border border-zinc-800/60 bg-zinc-900 animate-pulse" />
                 ))}
               </div>
             ) : projects.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="rounded-full bg-zinc-800 p-5 mb-4">
-                  <FolderOpen className="h-10 w-10 text-zinc-500" />
+              <div className="elevated flex flex-col items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/60 py-24 text-center">
+                <div className="glow-accent mb-5 rounded-2xl border border-green-500/25 bg-green-500/10 p-5">
+                  <FolderOpen className="h-9 w-9 text-green-400" />
                 </div>
-                <p className="text-zinc-400 font-medium text-lg">Welcome to Orquesta</p>
-                <p className="mt-1 text-sm text-zinc-600 max-w-sm">
+                <p className="text-2xl font-bold tracking-tight text-white">Welcome to Orquesta</p>
+                <p className="mt-2 text-sm text-zinc-500 max-w-sm">
                   Create a project and connect an agent, or try the demo to see what it looks like in action.
                 </p>
-                <div className="mt-6 flex items-center gap-3">
+                <div className="mt-7 flex items-center gap-3">
                   <Button onClick={seedDemo} variant="outline" loading={seedingDemo}>
                     <Play className="h-4 w-4" /> Try the Demo
                   </Button>
-                  <Button onClick={() => setShowCreate(true)}>
+                  <Button onClick={() => setShowCreate(true)} variant="gradient">
                     <Plus className="h-4 w-4" /> Create Project
                   </Button>
                 </div>
@@ -387,7 +387,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {projects.map((p) => (
                   <Link key={p.id} href={`/dashboard/projects/${p.id}`}>
-                    <Card className="h-full hover:border-zinc-700 hover:bg-zinc-800/50 transition-all cursor-pointer">
+                    <Card className="card-glow h-full cursor-pointer">
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <CardTitle className="text-base">{p.name}</CardTitle>
@@ -408,21 +408,21 @@ export default function DashboardPage() {
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center gap-4 text-xs text-zinc-500">
-                          <span className="flex items-center gap-1">
-                            <Zap className="h-3.5 w-3.5" /> {p.promptCount} prompts
+                          <span className="flex items-center gap-1.5">
+                            <Zap className="h-3.5 w-3.5 text-green-500/70" /> <span className="font-mono tabular-nums text-zinc-300">{p.promptCount}</span> prompts
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5" /> {p.memberCount} members
+                          <span className="flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5 text-zinc-500" /> <span className="font-mono tabular-nums text-zinc-300">{p.memberCount}</span> members
                           </span>
                         </div>
-                        <p className="mt-2 text-xs text-zinc-600">{formatRelative(p.createdAt)}</p>
+                        <p className="mt-2.5 font-mono text-[11px] text-zinc-600">{formatRelative(p.createdAt)}</p>
                       </CardContent>
                     </Card>
                   </Link>
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
       </main>
     </div>

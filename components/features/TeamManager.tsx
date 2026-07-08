@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Trash2, UserPlus, User, Bot, Plus, Copy, Check, X } from 'lucide-react'
+import { Trash2, UserPlus, Bot, Plus, Copy, Check, X } from 'lucide-react'
 
 interface Member {
   id: string
@@ -30,6 +30,18 @@ function RoleBadge({ role }: { role: string }) {
   if (role === 'owner') return <Badge variant="green">owner</Badge>
   if (role === 'admin') return <Badge variant="blue">admin</Badge>
   return <Badge variant="default">member</Badge>
+}
+
+function MemberAvatar({ name, email }: { name?: string; email?: string }) {
+  const label = name || email || '?'
+  const initial = label.trim()[0]?.toUpperCase() || '?'
+  const colors = ['bg-blue-600', 'bg-purple-600', 'bg-orange-600', 'bg-pink-600', 'bg-teal-600', 'bg-indigo-600']
+  const idx = label.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length
+  return (
+    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${colors[idx]} text-sm font-bold text-white`} title={label}>
+      {initial}
+    </div>
+  )
 }
 
 export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
@@ -179,7 +191,7 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as 'member' | 'admin')}
-                className="h-9 rounded-md border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-600"
+                className="h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white transition-colors hover:border-zinc-600 focus:border-green-600/60 focus:outline-none focus:ring-2 focus:ring-green-600/40"
               >
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
@@ -194,7 +206,7 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
       )}
 
       {actionError && (
-        <p className="rounded-md bg-red-950/50 border border-red-900 px-3 py-2 text-sm text-red-400">
+        <p className="rounded-lg border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-400">
           {actionError}
         </p>
       )}
@@ -209,30 +221,32 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
           ) : (
             <div className="divide-y divide-zinc-800">
               {members.map((m) => (
-                <div key={m.id} className="flex items-center gap-3 px-5 py-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-zinc-400">
-                    <User className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
+                <div key={m.id} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-zinc-800/30">
+                  <MemberAvatar name={m.user.name} email={m.user.email} />
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 truncate text-sm font-medium text-white">
                       {m.user.name || m.user.email}
+                      {m.user.id === currentUserId && (
+                        <span className="font-mono text-[10px] text-zinc-500">you</span>
+                      )}
                     </p>
-                    <p className="text-xs text-zinc-500 truncate">{m.user.email}</p>
+                    <p className="truncate font-mono text-xs text-zinc-500">{m.user.email}</p>
                   </div>
                   <RoleBadge role={m.role} />
                   {canManage && m.role !== 'owner' && m.user.id !== currentUserId && (
-                    <div className="flex items-center gap-1 ml-2">
+                    <div className="ml-2 flex items-center gap-1">
                       <select
                         value={m.role}
                         onChange={(e) => changeRole(m.id, e.target.value)}
-                        className="h-7 rounded border border-zinc-700 bg-zinc-800 px-2 text-xs text-white focus:outline-none"
+                        className="h-8 rounded-lg border border-zinc-700 bg-zinc-800 px-2 text-xs text-white transition-colors hover:border-zinc-600 focus:border-green-600/60 focus:outline-none focus:ring-2 focus:ring-green-600/40"
                       >
                         <option value="member">Member</option>
                         <option value="admin">Admin</option>
                       </select>
                       <button
                         onClick={() => remove(m.id)}
-                        className="p-1 text-zinc-600 hover:text-red-400 transition-colors"
+                        title="Remove member"
+                        className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-red-950/40 hover:text-red-400"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -278,7 +292,7 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
 
               {/* Connection modes */}
               <div className="mt-3 space-y-2">
-                <p className="text-[11px] font-medium text-zinc-400 uppercase tracking-wide">Connect with:</p>
+                <p className="font-mono text-xs uppercase tracking-wider text-zinc-500">Connect with</p>
                 <div className="space-y-1.5 text-xs">
                   <div className="rounded bg-zinc-900 border border-zinc-800 p-2">
                     <p className="text-zinc-300 font-medium mb-0.5 flex items-center gap-1.5">
@@ -314,16 +328,22 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
 
           {/* Token list */}
           {tokens.length === 0 ? (
-            <p className="text-sm text-zinc-500">No agent tokens yet.</p>
+            <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/40 px-4 py-6 text-center">
+              <Bot className="mx-auto mb-2 h-6 w-6 text-zinc-600" />
+              <p className="text-sm text-zinc-500">No agent tokens yet.</p>
+              <p className="mt-0.5 text-xs text-zinc-600">Create one below to connect an agent.</p>
+            </div>
           ) : (
-            <div className="divide-y divide-zinc-800 rounded-lg border border-zinc-800 overflow-hidden">
+            <div className="divide-y divide-zinc-800 overflow-hidden rounded-lg border border-zinc-800">
               {tokens.map((t) => (
-                <div key={t.id} className="flex items-center justify-between px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <Bot className="h-3.5 w-3.5 text-zinc-500" />
+                <div key={t.id} className="flex items-center justify-between px-4 py-2.5 transition-colors hover:bg-zinc-800/30">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950/60 text-zinc-500">
+                      <Bot className="h-3.5 w-3.5" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-white">{t.name}</p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="font-mono text-sm font-medium text-white">{t.name}</p>
+                      <p className="font-mono text-xs text-zinc-500">
                         {t.lastSeenAt
                           ? `Last seen ${new Date(t.lastSeenAt).toLocaleDateString()}`
                           : `Created ${new Date(t.createdAt).toLocaleDateString()}`}
@@ -333,7 +353,8 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
                   {canManage && (
                     <button
                       onClick={() => revokeToken(t.id)}
-                      className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors"
+                      title="Revoke token"
+                      className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-red-950/40 hover:text-red-400"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -352,7 +373,7 @@ export function TeamManager({ projectId, currentUserId }: TeamManagerProps) {
                 onChange={e => setNewTokenName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && createToken()}
                 placeholder="Token name (e.g. Laptop)"
-                className="flex-1 h-9 rounded-md border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-600"
+                className="h-9 flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white transition-colors placeholder:text-zinc-500 hover:border-zinc-600 focus:border-green-600/60 focus:outline-none focus:ring-2 focus:ring-green-600/40"
               />
               <Button size="sm" onClick={createToken} loading={creatingToken}>
                 <Plus className="h-4 w-4" /> Create

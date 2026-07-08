@@ -2,8 +2,8 @@
 
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -41,73 +41,69 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950">
-      {/* Subtle grid background */}
-      <div className="fixed inset-0 bg-[linear-gradient(rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:60px_60px] pointer-events-none" />
-
-      <div className="relative flex flex-1 items-center justify-center px-4">
-        <div className="w-full max-w-sm space-y-6">
-          <div className="text-center">
-            <Link href="/" className="inline-block mb-4 hover:opacity-90 transition-opacity">
-              <Image src="/logo-mark.png" alt="Orquesta" width={48} height={48} className="invert" priority />
-            </Link>
-            <h1 className="text-2xl font-bold text-white">Create account</h1>
-            <p className="mt-1 text-sm text-zinc-400">Set up your Orquesta workspace</p>
-          </div>
-
-          <form onSubmit={submit} className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-900/70 backdrop-blur p-6">
-            <Input
-              label="Name"
-              type="text"
-              id="name"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-            <Input
-              label="Email"
-              type="email"
-              id="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              label="Password"
-              type="password"
-              id="password"
-              placeholder="At least 8 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
-              required
-            />
-            {error && (
-              <p className="rounded-md bg-red-950/50 border border-red-900 px-3 py-2 text-sm text-red-400">
-                {error}
-              </p>
-            )}
-            <Button type="submit" className="w-full" loading={loading}>
-              Create account
-            </Button>
-          </form>
-
-          <p className="text-center text-sm text-zinc-500">
-            Already have an account?{' '}
-            <Link href="/login" className="text-green-500 hover:text-green-400 transition-colors">
-              Sign in
-            </Link>
-          </p>
-        </div>
+    <div className="animate-rise space-y-6">
+      <div>
+        <p className="font-mono text-xs uppercase tracking-wider text-zinc-500">
+          Get started
+        </p>
+        <h1 className="mt-2 text-2xl font-bold text-white">Create account</h1>
+        <p className="mt-1.5 text-sm text-zinc-400">
+          Set up your Orquesta workspace in seconds.
+        </p>
       </div>
 
-      <footer className="relative py-4 text-center text-xs text-zinc-600">
-        <Link href="/" className="hover:text-zinc-400 transition-colors">Orquesta OSS</Link>
-        {' '}&middot;{' '}
-        <a href="https://github.com/Orquesta-live/orquesta-oss" target="_blank" rel="noopener noreferrer" className="hover:text-zinc-400 transition-colors">GitHub</a>
-      </footer>
+      <form
+        onSubmit={submit}
+        className="elevated space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-6"
+      >
+        <Input
+          label="Name"
+          type="text"
+          id="name"
+          placeholder="Your name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+        <Input
+          label="Email"
+          type="email"
+          id="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <Input
+          label="Password"
+          type="password"
+          id="password"
+          placeholder="At least 8 characters"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          minLength={8}
+          required
+        />
+        {error && (
+          <p className="flex items-start gap-2 rounded-lg border border-red-900/70 bg-red-950/40 px-3 py-2 text-sm text-red-400">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span>{error}</span>
+          </p>
+        )}
+        <Button type="submit" className="w-full" loading={loading}>
+          Create account
+        </Button>
+      </form>
+
+      <p className="text-sm text-zinc-500">
+        Already have an account?{' '}
+        <Link
+          href="/login"
+          className="font-medium text-green-500 transition-colors hover:text-green-400"
+        >
+          Sign in
+        </Link>
+      </p>
     </div>
   )
 }
