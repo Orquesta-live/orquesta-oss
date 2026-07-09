@@ -2,11 +2,8 @@
 
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { PromptInput } from '@/components/features/PromptInput'
 import { PromptTimeline } from '@/components/features/PromptTimeline'
 import { TeamManager } from '@/components/features/TeamManager'
@@ -15,8 +12,9 @@ import { useSocket } from '@/hooks/useSocket'
 import { useToast } from '@/components/ui/toast'
 import {
   ArrowLeft, MessageSquare, Users, Key, Copy, Check,
-  Plus, Trash2, Wifi, WifiOff, Puzzle, Code2, Terminal,
-  Package, Loader2, Settings, Save, FileCode,
+  Plus, Trash2, Puzzle, Code2, Terminal,
+  Package, Loader2, Settings, Save, FileCode, ExternalLink,
+  Clock,
 } from 'lucide-react'
 
 type Tab = 'prompts' | 'team' | 'tokens' | 'integrations' | 'settings'
@@ -156,7 +154,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
   if (!project) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-console">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#09090b]">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
         <p className="font-mono text-xs uppercase tracking-wider text-zinc-500">Loading project…</p>
       </div>
@@ -172,58 +170,85 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   ]
 
   return (
-    <div className="min-h-screen bg-console">
+    <div className="min-h-screen bg-[#09090b]">
       {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-900/60 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-4">
+      <header className="relative overflow-hidden border-b border-zinc-800">
+        <div className="absolute inset-0 bg-gradient-to-br from-green-600/[0.07] via-transparent to-emerald-600/[0.04]" />
+        <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm" />
+        <div className="relative mx-auto max-w-6xl px-6 py-5">
           <Link
             href="/dashboard"
-            className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+            className="mb-4 inline-flex items-center gap-1.5 text-sm text-zinc-400 transition-all duration-200 hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
             Projects
           </Link>
-          <div className="h-5 w-px bg-zinc-800" />
-          <div className="flex flex-1 items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-600 text-sm font-bold text-white shadow-sm shadow-green-950/40">
+          <div className="flex items-center gap-5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-xl font-bold text-white shadow-lg shadow-green-900/40 ring-1 ring-white/10">
               {project.name[0]?.toUpperCase()}
             </div>
-            <div className="min-w-0">
-              <h1 className="text-base font-semibold text-white truncate">{project.name}</h1>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-white truncate">{project.name}</h1>
               {project.description && (
-                <p className="text-xs text-zinc-500 truncate">{project.description}</p>
+                <p className="mt-0.5 text-sm text-zinc-400 truncate">{project.description}</p>
               )}
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <MessageSquare className="h-3.5 w-3.5" /> Prompts
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <Users className="h-3.5 w-3.5" /> Team
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+                  <Key className="h-3.5 w-3.5" /> {tokens.length} token{tokens.length !== 1 ? 's' : ''}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs">
+                  {agentOnline ? (
+                    <>
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                      </span>
+                      <span className="text-green-400">Agent online</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="inline-flex h-2 w-2 rounded-full bg-zinc-600" />
+                      <span className="text-zinc-500">Agent offline</span>
+                    </>
+                  )}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {agentOnline ? (
-              <Badge variant="green" className="gap-1.5">
-                <Wifi className="h-3 w-3" /> Agent online
-              </Badge>
-            ) : (
-              <Badge variant="default" className="gap-1.5 text-zinc-400">
-                <WifiOff className="h-3 w-3" /> Agent offline
-              </Badge>
-            )}
+            <a
+              href="http://localhost:4000"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2.5 text-sm font-medium text-green-400 transition-all duration-200 hover:bg-green-500/20 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-900/20"
+            >
+              <Terminal className="h-4 w-4" />
+              Open in Terminal
+              <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+            </a>
           </div>
         </div>
       </header>
 
       {/* Tabs */}
-      <div className="border-b border-zinc-800 bg-zinc-900/30">
-        <div className="mx-auto max-w-6xl px-6">
-          <nav className="flex gap-1 overflow-x-auto">
+      <div className="border-b border-zinc-800 bg-[#09090b]">
+        <div className="mx-auto max-w-6xl px-6 py-3">
+          <nav className="inline-flex gap-1 rounded-xl bg-zinc-900/80 p-1 ring-1 ring-white/5">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-3.5 py-3 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
                   tab === t.id
-                    ? 'border-green-500 text-white'
-                    : 'border-transparent text-zinc-500 hover:border-zinc-700 hover:text-zinc-200'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
                 }`}
               >
-                {t.icon}
+                <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{t.icon}</span>
                 {t.label}
               </button>
             ))}
@@ -232,9 +257,9 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
       </div>
 
       {/* Content */}
-      <main className="mx-auto max-w-6xl px-6 py-6">
+      <main className="mx-auto max-w-6xl px-6 py-8">
         {tab === 'prompts' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <PromptInput projectId={projectId} agentOnline={agentOnline} />
             <PromptTimeline projectId={projectId} socket={socket} />
           </div>
@@ -245,7 +270,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         )}
 
         {tab === 'tokens' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="flex items-end justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-xs font-mono uppercase tracking-wider text-zinc-500">Access</p>
@@ -266,77 +291,90 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </div>
 
             {newTokenValue && (
-              <div className="rounded-xl border border-green-500/30 bg-green-500/[0.06] p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-400" />
-                  <p className="text-sm font-medium text-green-300">
+              <div className="rounded-xl border border-green-500/30 bg-green-500/[0.08] p-5 shadow-lg shadow-green-900/10 backdrop-blur-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20">
+                    <Check className="h-4 w-4 text-green-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-green-300">
                     Token created — copy it now, it won&apos;t be shown again
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 break-all rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-white">
+                  <code className="flex-1 break-all rounded-lg border border-green-500/20 bg-zinc-950 px-3 py-2.5 font-mono text-xs text-white shadow-inner">
                     {newTokenValue}
                   </code>
-                  <Button variant="outline" size="icon" onClick={() => copyText(newTokenValue, 'token-reveal')}>
+                  <Button variant="outline" size="icon" onClick={() => copyText(newTokenValue, 'token-reveal')} className="transition-all duration-200 hover:border-green-500/50">
                     {copied === 'token-reveal' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-                <p className="mt-3 font-mono text-xs uppercase tracking-wider text-zinc-500">Run your agent with</p>
-                <code className="mt-1.5 block overflow-x-auto whitespace-nowrap rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300">
-                  {`ORQUESTA_API_URL=${appUrl} npx orquesta-agent --token ${newTokenValue}`}
-                </code>
-                <Button variant="ghost" size="sm" className="mt-3" onClick={() => setNewTokenValue(null)}>
+                <p className="mt-4 font-mono text-xs uppercase tracking-wider text-zinc-400">Run your agent with</p>
+                <div className="group relative mt-2">
+                  <code className="block overflow-x-auto whitespace-nowrap rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 font-mono text-xs text-zinc-300">
+                    {`ORQUESTA_API_URL=${appUrl} npx orquesta-agent --token ${newTokenValue}`}
+                  </code>
+                  <button
+                    onClick={() => copyText(`ORQUESTA_API_URL=${appUrl} npx orquesta-agent --token ${newTokenValue}`, 'token-cmd')}
+                    className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-all duration-200 hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
+                  >
+                    {copied === 'token-cmd' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                <Button variant="ghost" size="sm" className="mt-4 transition-all duration-200" onClick={() => setNewTokenValue(null)}>
                   Dismiss
                 </Button>
               </div>
             )}
 
-            <Card>
-              <CardContent className="p-0">
-                {tokens.length === 0 ? (
-                  <div className="px-5 py-12 text-center">
-                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-800/50">
-                      <Key className="h-5 w-5 text-zinc-500" />
-                    </div>
-                    <p className="text-sm font-medium text-white">No tokens yet</p>
-                    <p className="mt-1 text-xs text-zinc-500">Create one to connect an agent to this project.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-zinc-800">
-                    {tokens.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-zinc-400">
-                            <Key className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-white">{t.name}</p>
-                            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500">
-                              <span className={`inline-block h-1.5 w-1.5 rounded-full ${t.lastSeenAt ? 'bg-green-500' : 'bg-zinc-600'}`} />
-                              {t.lastSeenAt
-                                ? `Last seen ${new Date(t.lastSeenAt).toLocaleString()}`
-                                : 'Never connected'}
-                            </p>
-                          </div>
-                        </div>
-                        {['owner', 'admin'].includes(role) && (
-                          <button onClick={() => revokeToken(t.id)} className="shrink-0 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-red-400">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
+            {tokens.length === 0 ? (
+              <div className="rounded-xl border border-white/5 bg-zinc-900/50 px-6 py-16 text-center backdrop-blur-sm">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-800/30">
+                  <Key className="h-8 w-8 text-zinc-600" />
+                </div>
+                <p className="text-base font-medium text-white">No tokens yet</p>
+                <p className="mt-1.5 text-sm text-zinc-500">Create one to connect an agent to this project.</p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {tokens.map((t) => (
+                  <div key={t.id} className="group flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-zinc-900/50 px-5 py-4 backdrop-blur-sm transition-all duration-200 hover:border-zinc-700 hover:bg-zinc-900/70">
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800/80 text-zinc-400 ring-1 ring-white/5">
+                        <Key className="h-4.5 w-4.5" />
                       </div>
-                    ))}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">{t.name}</p>
+                        <p className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+                          <span className="flex items-center gap-1.5">
+                            <span className={`inline-block h-2 w-2 rounded-full ${t.lastSeenAt ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-zinc-600'}`} />
+                            {t.lastSeenAt ? 'Online' : 'Offline'}
+                          </span>
+                          <span className="text-zinc-700">•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {t.lastSeenAt
+                              ? `Last seen ${new Date(t.lastSeenAt).toLocaleString()}`
+                              : 'Never connected'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    {['owner', 'admin'].includes(role) && (
+                      <button onClick={() => revokeToken(t.id)} className="shrink-0 rounded-lg p-2 text-zinc-600 transition-all duration-200 hover:bg-red-500/10 hover:text-red-400">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                ))}
+              </div>
+            )}
 
             <ConnectionGuide appUrl={appUrl} tokenValue={newTokenValue ?? undefined} />
           </div>
         )}
 
         {tab === 'settings' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="flex items-end justify-between gap-4">
               <div className="space-y-1">
                 <p className="text-xs font-mono uppercase tracking-wider text-zinc-500">Agent Context</p>
@@ -353,24 +391,43 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 </Button>
               )}
             </div>
-            <Card>
-              <CardContent className="p-0">
-                {claudeMdLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-zinc-900/50 backdrop-blur-sm">
+              {/* Editor Header */}
+              <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2.5">
+                <div className="flex items-center gap-2">
+                  <FileCode className="h-3.5 w-3.5 text-zinc-500" />
+                  <span className="font-mono text-xs text-zinc-400">CLAUDE.md</span>
+                </div>
+                <span className={`flex items-center gap-1.5 text-xs ${claudeMdSaving ? 'text-yellow-400' : 'text-zinc-600'}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${claudeMdSaving ? 'bg-yellow-400' : 'bg-green-500'}`} />
+                  {claudeMdSaving ? 'Saving…' : 'Saved'}
+                </span>
+              </div>
+              {/* Editor Body */}
+              {claudeMdLoading ? (
+                <div className="flex items-center justify-center gap-2 py-16 text-sm text-zinc-500">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                </div>
+              ) : (
+                <div className="relative flex">
+                  {/* Line Numbers */}
+                  <div className="pointer-events-none select-none border-r border-zinc-800/50 bg-zinc-950/50 px-3 py-4 font-mono text-xs leading-relaxed text-zinc-700">
+                    {(claudeMd || '\n'.repeat(19)).split('\n').map((_, i) => (
+                      <div key={i} className="text-right">{i + 1}</div>
+                    ))}
                   </div>
-                ) : (
                   <textarea
                     value={claudeMd}
                     onChange={(e) => setClaudeMd(e.target.value)}
                     disabled={!['owner', 'admin'].includes(role)}
                     placeholder={`# Project Rules\n\n- All code must be in TypeScript\n- Use functional components\n- Write tests for new features\n\n# Architecture\n\n- Frontend: React + Next.js\n- Backend: Express API\n- Database: PostgreSQL`}
                     rows={20}
-                    className="w-full resize-y rounded-xl border border-transparent bg-zinc-950 p-4 font-mono text-sm leading-relaxed text-zinc-300 placeholder:text-zinc-700 focus:border-green-600/50 focus:outline-none focus:ring-2 focus:ring-green-600/40 disabled:opacity-50"
+                    className="w-full flex-1 resize-y border-0 bg-transparent p-4 font-mono text-sm leading-relaxed text-zinc-300 placeholder:text-zinc-700 focus:outline-none focus:ring-0 disabled:opacity-50"
+                    spellCheck={false}
                   />
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              )}
+            </div>
             <p className="flex items-center gap-1.5 text-xs text-zinc-500">
               <FileCode className="h-3.5 w-3.5" />
               Supports Markdown. The agent writes this to CLAUDE.md in the project root before each execution.
@@ -379,7 +436,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         )}
 
         {tab === 'integrations' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="space-y-1">
               <p className="text-xs font-mono uppercase tracking-wider text-zinc-500">Connect</p>
               <h2 className="text-lg font-semibold text-white">Integrations</h2>
@@ -387,17 +444,26 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             </div>
 
             {/* Embed Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-green-400">
-                    <Code2 className="h-4 w-4" />
-                  </span>
-                  Embed Widget
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-zinc-400">Add the Orquesta prompt widget to any website.</p>
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-zinc-900/50 backdrop-blur-sm transition-all duration-200 hover:border-zinc-700">
+              <div className="flex items-center gap-4 border-b border-zinc-800/50 p-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/10 text-green-400 ring-1 ring-green-500/20">
+                  <Code2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">Embed Widget</h3>
+                  <p className="mt-0.5 text-sm text-zinc-400">Add the Orquesta prompt widget to any website.</p>
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
+                {/* Widget Preview */}
+                <div className="rounded-lg border border-zinc-800 bg-zinc-950/80 p-4">
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-zinc-600">Preview</p>
+                  <div className="flex items-center gap-3 rounded-lg border border-zinc-700 bg-zinc-900 p-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-600 text-xs font-bold text-white">O</div>
+                    <div className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 font-mono text-xs text-zinc-500">Send a prompt to the agent…</div>
+                    <div className="h-7 w-14 rounded-md bg-green-600 text-center text-[10px] font-medium leading-7 text-white">Send</div>
+                  </div>
+                </div>
                 <div>
                   <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wider text-zinc-500">1. Load the script</p>
                   <div className="group relative">
@@ -406,7 +472,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     </pre>
                     <button
                       onClick={() => copyText(`<script src="${appUrl}/embed/v1/orquesta.min.js"></script>`, 'embed-script')}
-                      className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
+                      className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-all duration-200 hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
                     >
                       {copied === 'embed-script' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
                     </button>
@@ -422,31 +488,31 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 ></div>`}</pre>
                     <button
                       onClick={() => copyText(`<div\n  id="orquesta-widget"\n  data-project-id="${projectId}"\n  data-token="YOUR_EMBED_TOKEN"\n></div>`, 'embed-div')}
-                      className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
+                      className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-all duration-200 hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
                     >
                       {copied === 'embed-div' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
                     </button>
                   </div>
                 </div>
-                <p className="flex items-center gap-1.5 border-t border-zinc-800 pt-3 text-xs text-zinc-500">
+                <p className="flex items-center gap-1.5 border-t border-zinc-800/50 pt-4 text-xs text-zinc-500">
                   <Package className="h-3.5 w-3.5" />
                   Also on npm: <code className="font-mono text-zinc-300">npm install orquesta-embed</code>
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* CLI Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-green-400">
-                    <Terminal className="h-4 w-4" />
-                  </span>
-                  Orquesta CLI
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-zinc-400">Submit prompts and manage projects from your terminal.</p>
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-zinc-900/50 backdrop-blur-sm transition-all duration-200 hover:border-zinc-700">
+              <div className="flex items-center gap-4 border-b border-zinc-800/50 p-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/10 text-green-400 ring-1 ring-green-500/20">
+                  <Terminal className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">Orquesta CLI</h3>
+                  <p className="mt-0.5 text-sm text-zinc-400">Submit prompts and manage projects from your terminal.</p>
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
                 <div>
                   <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wider text-zinc-500">Install</p>
                   <div className="group relative">
@@ -455,7 +521,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     </pre>
                     <button
                       onClick={() => copyText('npm install -g orquesta-cli', 'cli-install')}
-                      className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
+                      className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-all duration-200 hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
                     >
                       {copied === 'cli-install' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
                     </button>
@@ -469,14 +535,14 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                     </pre>
                     <button
                       onClick={() => copyText(`ORQUESTA_API_URL=${appUrl} orquesta --token oclt_YOUR_TOKEN`, 'cli-connect')}
-                      className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
+                      className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-500 opacity-0 transition-all duration-200 hover:bg-zinc-800 hover:text-white group-hover:opacity-100"
                     >
                       {copied === 'cli-connect' ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
                     </button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         )}
       </main>
