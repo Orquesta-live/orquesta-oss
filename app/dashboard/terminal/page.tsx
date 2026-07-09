@@ -250,8 +250,9 @@ export default function TerminalWorkspacePage() {
           </div>
         </div>
 
-        {/* Project selector */}
+        {/* Project selector (self-hosted) */}
         <div className="relative">
+          <p className="absolute -top-3 left-0 text-[8px] uppercase tracking-wider text-zinc-600 font-mono">self-hosted</p>
           <button
             onClick={() => setPickerOpen(o => !o)}
             className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/10"
@@ -435,13 +436,38 @@ export default function TerminalWorkspacePage() {
       <main className="relative z-10 flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-auto p-4">
           {!projectId ? (
-            <EmptyState title="No project selected" hint="Pick a project from the selector above to open terminals." />
-          ) : !online ? (
             <EmptyState
-              title="Agent offline"
-              hint="This project's agent isn't connected. Start the agent on your machine, then reopen this workspace."
-              action={<Link href={`/dashboard/projects/${projectId}`}><Button variant="outline" size="sm">Open project settings</Button></Link>}
+              title="No project selected"
+              hint="Select a project from the dropdown above. If you don't have one, go to Dashboard to create it."
+              action={<Link href="/dashboard/agents"><Button variant="outline" size="sm">Go to Dashboard</Button></Link>}
             />
+          ) : !online ? (
+            <div className="flex h-full flex-col items-center justify-center text-center max-w-md mx-auto">
+              <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+                <WifiOff className="h-8 w-8 text-amber-400" />
+              </div>
+              <p className="text-lg font-semibold text-white">Agent offline</p>
+              <p className="mt-2 text-sm text-zinc-400">
+                The agent for <span className="text-white font-medium">{activeProject?.name}</span> isn&apos;t connected.
+              </p>
+              <div className="mt-4 w-full rounded-lg border border-zinc-800 bg-zinc-900/80 p-4 text-left">
+                <p className="text-xs font-medium text-zinc-300 mb-2">To connect, run in your terminal:</p>
+                <code className="block rounded bg-zinc-950 border border-zinc-800 px-3 py-2 text-xs font-mono text-green-400">
+                  cd /path/to/project && node agent/index.js --token oat_YOUR_TOKEN
+                </code>
+                <p className="mt-2 text-[10px] text-zinc-600">
+                  Get your agent token from project settings. The agent connects automatically.
+                </p>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Link href={`/dashboard/projects/${projectId}`}>
+                  <Button variant="outline" size="sm">Project settings</Button>
+                </Link>
+                <Link href="/dashboard/agents">
+                  <Button variant="outline" size="sm">All agents</Button>
+                </Link>
+              </div>
+            </div>
           ) : (
             <AgentGrid
               ref={gridRef}
