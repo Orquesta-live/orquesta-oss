@@ -14,7 +14,7 @@ import {
   Check, Terminal as TerminalIcon, Command as CommandIcon,
   LayoutGrid, Settings, RotateCcw, Paintbrush, Plus, X, Upload,
   Cloud, ExternalLink, Loader2, CheckCircle2, AlertCircle, Clock,
-  Star, Tag, MessageSquare, Send, Monitor,
+  Star, Tag, MessageSquare, Send, Monitor, Puzzle,
 } from 'lucide-react'
 
 interface Project {
@@ -66,6 +66,7 @@ export default function TerminalWorkspacePage() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [bg, setBg] = useState<BgSettings>(DEFAULT_BG)
   const [timelineOpen, setTimelineOpen] = useState(false)
+  const [pluginsOpen, setPluginsOpen] = useState(false)
   const gridRef = useRef<AgentGridHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -412,6 +413,18 @@ export default function TerminalWorkspacePage() {
           {online && (
             <ExternalSessionsButton socket={socket} />
           )}
+          <button
+            onClick={() => setPluginsOpen(o => !o)}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+              pluginsOpen
+                ? 'border-purple-500/30 bg-purple-500/10 text-purple-300'
+                : 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white'
+            }`}
+            title="Plugins & Integrations"
+          >
+            <Puzzle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Plugins</span>
+          </button>
           <HostedHookPanel hosted={hosted} />
         </div>
       </header>
@@ -443,6 +456,11 @@ export default function TerminalWorkspacePage() {
         {/* Timeline sidebar (hosted prompts) */}
         {timelineOpen && hosted.isLoggedIn && (
           <HostedTimeline auth={hosted.auth!} />
+        )}
+
+        {/* Plugins panel */}
+        {pluginsOpen && (
+          <PluginsPanel />
         )}
       </main>
 
@@ -1091,6 +1109,201 @@ function ChannelChat({ auth, projectId, channelId }: { auth: HostedAuth; project
         </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * Plugins & Integrations panel — shows companion products with descriptions,
+ * example prompts to use them, and integration buttons.
+ */
+const PLUGINS = [
+  {
+    id: 'sudosudo',
+    name: 'SudoSudo',
+    url: 'https://sudosudo.dev',
+    icon: '🛡️',
+    color: 'amber',
+    tagline: 'Autonomous monitoring & remediation',
+    description: 'Deploy AI-powered monitoring agents on your servers. Get alerts, automatic triage reports, and autonomous SSH-based remediation when things break.',
+    features: ['YAML-based alert rules', 'Kimi agent investigates via SSH', 'Markdown triage reports', 'Per-target audit logs'],
+    prompts: [
+      'Check the status of my sudosudo targets and report any active alerts',
+      'Set up a new monitoring rule: alert if CPU > 90% for 5 minutes',
+      'Show me the last triage report from the production server',
+    ],
+    integrationHint: 'Add your SudoSudo target ID to connect monitoring data.',
+  },
+  {
+    id: 'rogerthat',
+    name: 'RogerThat',
+    url: 'https://rogerthat.chat',
+    icon: '📡',
+    color: 'cyan',
+    tagline: 'Voice, Meet & Coordination for AI agents',
+    description: 'Walkie-talkie for your AI agents. Real-time coordination channels, video/voice calls with a 3D avatar, and inter-agent messaging.',
+    features: ['Coordination channels (agent-to-agent)', 'Voice calls with avatar (meet.rogerthat.chat)', 'Webhook-based message relay', 'Cross-project ping'],
+    prompts: [
+      'Open a voice call with my agent to discuss the current task',
+      'Ping all agents in the coordination channel to sync status',
+      'Show me the latest messages from the rogerthat channel',
+    ],
+    integrationHint: 'Connect your RogerThat channel to enable voice & coordination.',
+  },
+  {
+    id: 'apumail',
+    name: 'Apumail',
+    url: 'https://apumail.com',
+    icon: '📬',
+    color: 'green',
+    tagline: 'Agent-native temp mail',
+    description: 'Two-way email inbox for AI agents. Each agent gets an @apumail.com address with automatic OTP extraction, webhook push on new mail, and REST/MCP access.',
+    features: ['Inbound + outbound email', 'Automatic OTP/verification extraction', 'Webhook on new mail', 'REST + MCP server'],
+    prompts: [
+      'Check my agent inbox for new emails or verification codes',
+      'Send an email from the agent to team@company.com with the deploy report',
+      'Extract the OTP from the latest email and use it to verify the account',
+    ],
+    integrationHint: 'Set your agent\'s apumail address to enable email capabilities.',
+  },
+  {
+    id: 'trustops',
+    name: 'TrustOps',
+    url: 'https://trustops.eu',
+    icon: '🔐',
+    color: 'blue',
+    tagline: 'Policy-enforced AI with verifiable audit',
+    description: 'Continuously building trustworthy software. Policy-enforced AI agents with cryptographically verifiable audit logs. Prove what your agent did, and that it was authorized.',
+    features: ['Policy enforcement (YAML rules)', 'Cryptographic audit logs', 'Verifiable agent actions', 'Compliance reporting'],
+    prompts: [
+      'Show the TrustOps audit log for the last deployment',
+      'Verify that the agent\'s actions complied with the security policy',
+      'Generate a compliance report for the last 7 days of agent activity',
+    ],
+    integrationHint: 'Connect your TrustOps project to enable policy enforcement & audit.',
+  },
+] as const
+
+function PluginsPanel() {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null)
+
+  const copyPrompt = (prompt: string) => {
+    navigator.clipboard.writeText(prompt).catch(() => {})
+    setCopiedPrompt(prompt)
+    setTimeout(() => setCopiedPrompt(null), 2000)
+  }
+
+  const colorMap: Record<string, string> = {
+    amber: 'border-amber-500/20 bg-amber-500/5',
+    cyan: 'border-cyan-500/20 bg-cyan-500/5',
+    green: 'border-green-500/20 bg-green-500/5',
+    blue: 'border-blue-500/20 bg-blue-500/5',
+  }
+  const textColorMap: Record<string, string> = {
+    amber: 'text-amber-400',
+    cyan: 'text-cyan-400',
+    green: 'text-green-400',
+    blue: 'text-blue-400',
+  }
+
+  return (
+    <aside className="relative z-10 flex w-80 shrink-0 flex-col border-l border-white/10 bg-zinc-900/80 backdrop-blur-sm">
+      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+        <Puzzle className="h-3.5 w-3.5 text-purple-400" />
+        <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Plugins & Integrations</p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        {PLUGINS.map(plugin => {
+          const isExpanded = expandedId === plugin.id
+          return (
+            <div
+              key={plugin.id}
+              className={`rounded-lg border transition-colors ${
+                isExpanded ? colorMap[plugin.color] : 'border-zinc-800 bg-zinc-900/60'
+              }`}
+            >
+              {/* Header */}
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : plugin.id)}
+                className="w-full px-3 py-2.5 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{plugin.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white">{plugin.name}</p>
+                    <p className="text-[10px] text-zinc-500">{plugin.tagline}</p>
+                  </div>
+                  <ChevronDown className={`h-3 w-3 text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+
+              {/* Expanded content */}
+              {isExpanded && (
+                <div className="px-3 pb-3 space-y-3">
+                  {/* Description */}
+                  <p className="text-[11px] leading-relaxed text-zinc-400">
+                    {plugin.description}
+                  </p>
+
+                  {/* Features */}
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-600 mb-1">Features</p>
+                    <div className="flex flex-wrap gap-1">
+                      {plugin.features.map(f => (
+                        <span key={f} className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Prompts */}
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider text-zinc-600 mb-1">Example prompts</p>
+                    <div className="space-y-1">
+                      {plugin.prompts.map(p => (
+                        <button
+                          key={p}
+                          onClick={() => copyPrompt(p)}
+                          className="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-left text-[10px] text-zinc-300 hover:border-zinc-700 hover:text-white transition-colors group"
+                        >
+                          <span className="line-clamp-2">{p}</span>
+                          <span className={`block mt-0.5 text-[9px] ${copiedPrompt === p ? textColorMap[plugin.color] : 'text-zinc-600 group-hover:text-zinc-500'}`}>
+                            {copiedPrompt === p ? '✓ Copied' : 'Click to copy'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Integration */}
+                  <div className="border-t border-zinc-800 pt-2">
+                    <p className="text-[10px] text-zinc-500 mb-2">{plugin.integrationHint}</p>
+                    <div className="flex gap-2">
+                      <a
+                        href={plugin.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-medium transition-colors hover:opacity-90 ${
+                          plugin.color === 'amber' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' :
+                          plugin.color === 'cyan' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' :
+                          plugin.color === 'green' ? 'border-green-500/30 bg-green-500/10 text-green-300' :
+                          'border-blue-500/30 bg-blue-500/10 text-blue-300'
+                        }`}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Open {plugin.name}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </aside>
   )
 }
 

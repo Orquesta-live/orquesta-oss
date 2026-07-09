@@ -131,6 +131,7 @@ function TerminalCell({
     async function initTerminal() {
       const xtermModule = await import('@xterm/xterm')
       const { FitAddon } = await import('@xterm/addon-fit')
+      const { WebLinksAddon } = await import('@xterm/addon-web-links')
 
       // Wait for the self-hosted Geist Mono webface so xterm measures glyph
       // widths against the real font (avoids the misaligned-cursor artifact
@@ -149,10 +150,17 @@ function TerminalCell({
         cursorBlink: true,
         cursorStyle: 'bar',
         scrollback: 5000,
+        // Alt-screen suppression: when claude enters alt-screen mode (TUI),
+        // keep the scrollbar and mouse events working in the pane wrapper.
+        altClickMovesCursor: false,
       })
 
       const fitAddon = new FitAddon()
+      const webLinksAddon = new WebLinksAddon((e, uri) => {
+        window.open(uri, '_blank', 'noopener')
+      })
       term.loadAddon(fitAddon)
+      term.loadAddon(webLinksAddon)
       term.open(containerRef.current)
       fitAddon.fit()
       termRef.current = term
