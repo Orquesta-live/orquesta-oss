@@ -250,9 +250,8 @@ export default function TerminalWorkspacePage() {
           </div>
         </div>
 
-        {/* Project selector (self-hosted) */}
+        {/* Project selector — shows local projects (self-hosted mode) or hosted projects depending on connection */}
         <div className="relative">
-          <p className="absolute -top-3 left-0 text-[8px] uppercase tracking-wider text-zinc-600 font-mono">self-hosted</p>
           <button
             onClick={() => setPickerOpen(o => !o)}
             className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white transition-colors hover:bg-white/10"
