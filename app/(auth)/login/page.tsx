@@ -38,7 +38,7 @@ export default function LoginPage() {
         throw new Error(data.message || data.error || 'Login failed')
       }
 
-      router.push('/dashboard')
+      router.push('/dashboard/terminal')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -54,7 +54,7 @@ export default function LoginPage() {
       await hosted.login(token, hostedUrl)
       // After hosted login, still go to local dashboard
       // (the hosted projects are now stored for the terminal)
-      router.push('/dashboard')
+      router.push('/dashboard/terminal')
     } catch {
       // error is set in the hook
     }
@@ -140,7 +140,7 @@ export default function LoginPage() {
           </p>
           <div className="mt-3 flex gap-2">
             <Button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/dashboard/terminal')}
               size="sm"
               className="flex-1"
             >
@@ -173,7 +173,7 @@ export default function LoginPage() {
           <Button
             type="button"
             className="w-full"
-            onClick={() => hosted.loginWithBrowser(hostedUrl).then(() => router.push('/dashboard')).catch(() => {})}
+            onClick={() => hosted.loginWithBrowser(hostedUrl).then(() => router.push('/dashboard/terminal')).catch(() => {})}
             disabled={hosted.loading}
           >
             {hosted.loading ? (

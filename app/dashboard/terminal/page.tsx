@@ -198,7 +198,7 @@ export default function TerminalWorkspacePage() {
       group: 'Navigate',
       label: 'Back to dashboard',
       icon: LayoutGrid,
-      run: () => router.push('/dashboard'),
+      run: () => router.push('/dashboard/agents'),
     })
     if (projectId) {
       list.push({
@@ -232,10 +232,11 @@ export default function TerminalWorkspacePage() {
       <header className="glass relative z-20 flex items-center justify-between gap-3 px-4 py-2.5">
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard"
+            href="/dashboard/agents"
             className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
+            title="Manage projects & agents"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <Settings className="h-4 w-4" />
           </Link>
           <div className="flex items-center gap-2">
             <Image src="/logo-mark.png" alt="Orquesta" width={20} height={20} className="invert" priority />

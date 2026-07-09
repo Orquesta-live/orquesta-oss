@@ -24,16 +24,24 @@ export function middleware(req: NextRequest) {
     req.cookies.get('better-auth.session_token') ||
     req.cookies.get('__Secure-better-auth.session_token')
 
-  if (!sessionCookie && pathname.startsWith('/dashboard')) {
+  if (!sessionCookie && (pathname.startsWith('/dashboard') || pathname.startsWith('/terminal'))) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // Root: show landing page for guests, redirect to dashboard for logged-in users
+  // Root: show landing page for guests, redirect to terminal workspace for logged-in users
   if (pathname === '/') {
     if (sessionCookie) {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+      return NextResponse.redirect(new URL('/dashboard/terminal', req.url))
     }
     return NextResponse.next()
+  }
+
+  // /dashboard without subpath: redirect to terminal (the product)
+  if (pathname === '/dashboard') {
+    if (sessionCookie) {
+      return NextResponse.redirect(new URL('/dashboard/terminal', req.url))
+    }
+    return NextResponse.redirect(new URL('/login', req.url))
   }
 
   return NextResponse.next()
