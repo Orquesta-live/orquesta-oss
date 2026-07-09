@@ -5,282 +5,140 @@
 <h1 align="center">Orquesta OSS</h1>
 
 <p align="center">
-  Self-hosted AI prompt orchestration.<br/>
-  Connect agents to any machine. Submit prompts from a shared dashboard.<br/>
-  Claude executes with full system access. Everything is logged.
+  <strong>Self-hosted AI agent infrastructure.</strong><br/>
+  The backend that powers Orquesta Terminal. Manage projects, agents, and teams.<br/>
+  Run on your own machine or a shared VM.
 </p>
 
 <p align="center">
-  <a href="https://orquesta.live">Website</a> &middot;
-  <a href="#quick-start">Quick Start</a> &middot;
-  <a href="#features">Features</a> &middot;
-  <a href="#connecting-an-agent">Connect Agent</a> &middot;
-  <a href="https://orquesta.live/docs">Docs</a>
+  <a href="https://getorquesta.com">Orquesta Cloud</a> ·
+  <a href="https://github.com/Getorquesta/orquesta-terminal">Terminal Product</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#features">Features</a>
 </p>
 
 ---
 
-## What is Orquesta?
+## What is this?
 
-Orquesta lets you install an AI agent on any machine (your laptop, a VM, a staging server), then submit prompts from a shared dashboard that execute via Claude CLI. Logs stream in real time, git commits are tracked, and your team collaborates on a single timeline.
+Orquesta OSS is the **self-hosted backend** for the Orquesta ecosystem. It provides:
 
-```
-Browser  <-->  Next.js + Socket.io  <-->  orquesta-agent (any machine)
-                     |                           |
-                Prisma (SQLite)           Claude CLI execution
-```
+- A project/agent management dashboard
+- WebSocket server for real-time agent ↔ terminal communication
+- Authentication (multi-user, for teams on shared VMs)
+- Agent token management and session routing
+- Local database (SQLite via Prisma)
 
-**This is the open-source, self-hosted version.** The hosted version at [orquesta.live](https://orquesta.live) adds scheduled prompts, integrations (Linear, GitHub, Vercel), performance analytics, guardrails, and more.
-
----
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| **Real-time execution** | Submit prompts, watch logs stream live via Socket.io |
-| **Agent Grid** | Drag-and-drop terminal sessions with xterm.js |
-| **CLAUDE.md Sync** | Define coding standards in the dashboard, agent syncs before every execution |
-| **Git commit tracking** | See diffs, file changes, and commit messages per prompt |
-| **Team collaboration** | Invite members with roles (owner / admin / member) |
-| **Prompt search & filter** | Search by content, filter by status |
-| **Cost tracking** | Token usage and estimated cost per prompt |
-| **Interactive sessions** | Full terminal access to agent machines via node-pty |
-| **Demo project** | First-time users get a pre-populated project showing what it looks like in action |
-| **Docker deploy** | One command to get running |
-| **SQLite or Postgres** | SQLite by default, switch to Postgres with one env var |
-
----
+It's the infrastructure layer that [Orquesta Terminal](https://github.com/Getorquesta/orquesta-terminal) connects to.
 
 ## Quick Start
 
-### Docker (recommended)
-
 ```bash
-git clone https://github.com/Orquesta-live/orquesta-oss
-cd orquesta-oss
-
-# Create .env
-cat > .env << EOF
-BETTER_AUTH_SECRET=$(openssl rand -hex 32)
-BETTER_AUTH_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-DATABASE_URL=file:/app/data/orquesta.db
-EOF
-
-docker compose up
-```
-
-Open **http://localhost:3000**, sign up, and click **"Try the Demo"** to see what it looks like with sample data.
-
-### Local development
-
-```bash
-git clone https://github.com/Orquesta-live/orquesta-oss
+git clone https://github.com/Getorquesta/orquesta-oss.git
 cd orquesta-oss
 npm install
-
-cp .env.example .env
-# Edit .env — set BETTER_AUTH_SECRET to a random 32-char string
-
-npm run db:push   # create SQLite schema
-npm run dev       # http://localhost:3000
+npx prisma db push
+npm run dev
 ```
 
----
+Open **http://localhost:3000** — create an account, create a project, generate an agent token.
 
-## Connecting an Agent
-
-Create a project, go to the **Tokens** tab, and create an agent token. Then:
-
-### Same machine (local testing)
-
+Then connect an agent:
 ```bash
-npx orquesta-agent --token oat_xxx --mode claude
+node agent/index.js --token oat_YOUR_TOKEN_HERE
 ```
 
-### Remote machine
+## Features
 
-The agent needs a network path to your server:
+### 📋 Project Management
+Create projects, invite team members, assign roles. Each project gets its own agent tokens and prompt history.
 
-| Option | Best for |
-|--------|----------|
-| **Tailscale** (recommended) | Any setup — private VPN, no port forwarding |
-| **Cloudflare Tunnel** | Public HTTPS URL, no account needed |
-| **Local IP** | Both machines on the same LAN |
-| **VPS** | Production / team use |
+### 🤖 Agent Runtime
+Agents connect via WebSocket with `oat_` tokens. The server routes terminal sessions, relays events, and tracks heartbeats.
 
-```bash
-# Tailscale example
-ORQUESTA_API_URL=http://100.x.x.x:3000 npx orquesta-agent --token oat_xxx --mode claude
+### 👥 Multi-User Auth
+Built on better-auth — email/password login. Designed for teams sharing a dev VM where each person needs their own identity.
 
-# Cloudflare Tunnel example
-ORQUESTA_API_URL=https://xyz.trycloudflare.com npx orquesta-agent --token oat_xxx --mode claude
-```
+### 🔌 Socket.io Server
+Real-time event relay between agents and the Terminal frontend:
+- `session:start/input/output` — PTY lifecycle
+- `hook:init-project` — Hook enrollment
+- `sessions:external-*` — Import detection
+- Agent online/offline status
 
-The `--mode claude` flag ensures the agent uses Claude CLI. The agent auto-detects OSS vs cloud — no other flags needed.
+### 📊 Prompt History
+Every prompt executed through the system is logged with status, tokens used, git branch, and metadata.
 
-### Standalone agent (no npm)
+### 🔑 Agent Tokens
+Generate `oat_` tokens per project. Tokens authenticate agents and scope them to specific projects.
 
-```bash
-node agent/index.js --url http://your-server:3000 --token oat_xxx
-```
-
-Zero npm dependencies beyond `socket.io-client`. Does everything the npm package does: prompt execution, log streaming, interactive sessions.
-
----
-
-## CLAUDE.md Sync
-
-Define coding standards, rules, and context in the **Settings** tab of your project. The agent automatically writes this to `CLAUDE.md` in the working directory before every execution, so Claude follows your team's conventions.
-
-```markdown
-# Project Rules
-
-- All code must be in TypeScript
-- Use functional components
-- Write tests for new features
-- Use conventional commits
-```
-
----
-
-## How It Works
-
-1. **Install the agent** on any machine with Claude CLI installed
-2. **Submit prompts** from the dashboard — your team sees them in real time
-3. **Agent executes** via `claude --print --output-format stream-json`
-4. **Logs stream** to all connected dashboards via Socket.io
-5. **Git commits** are captured and displayed with diffs per prompt
-6. **Results** show token usage, cost, and execution duration
-
----
-
-## Environment Variables
-
-| Variable | Required | Description | Default |
-|----------|----------|-------------|---------|
-| `BETTER_AUTH_SECRET` | Yes | Session signing secret (`openssl rand -hex 32`) | — |
-| `BETTER_AUTH_URL` | Yes | Public URL of your app | `http://localhost:3000` |
-| `NEXT_PUBLIC_APP_URL` | Yes | Same as above (client-side) | `http://localhost:3000` |
-| `DATABASE_URL` | No | SQLite file or Postgres connection string | `file:./data/orquesta.db` |
-| `PORT` | No | HTTP port | `3000` |
-
-### Switch to Postgres
-
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/orquesta"
-```
-
-Then: `npm run db:migrate`
-
----
-
-## Project Structure
+## Architecture
 
 ```
-orquesta-oss/
-├── app/
-│   ├── page.tsx                       # Landing page
-│   ├── (auth)/login + signup          # Auth pages
-│   ├── dashboard/                     # Project list + Agent Grid
-│   ├── dashboard/projects/[id]/       # Prompts | Team | Tokens | Settings
-│   └── api/                           # REST + auth + agent endpoints
-├── components/
-│   ├── ui/                            # Button, Card, Badge, Input, Toast, Logo
-│   └── features/
-│       ├── PromptTimeline.tsx         # Real-time logs, search, filter, git commits
-│       ├── AgentGrid.tsx              # Drag-drop terminal grid (xterm.js)
-│       ├── PromptInput.tsx            # Prompt submission
-│       ├── TeamManager.tsx            # Members + roles
-│       └── ConnectionGuide.tsx        # Agent networking setup
-├── hooks/
-│   ├── useSocket.ts                   # Socket.io React hook
-│   └── usePromptLogs.ts              # Real-time log subscription
-├── lib/
-│   ├── auth.ts                        # Better Auth config
-│   ├── db.ts                          # Prisma singleton
-│   └── socket.ts                      # Socket.io server + event handlers
-├── agent/index.js                     # Standalone agent script
-├── prisma/schema.prisma               # SQLite/Postgres schema
-├── server.ts                          # Custom Next.js + Socket.io server
-├── Dockerfile + docker-compose.yml    # One-command deploy
-└── public/                            # Logo, favicon
+┌─────────────────────────────┐
+│     Orquesta Terminal       │  ← The product (github.com/Getorquesta/orquesta-terminal)
+│     (connects here)         │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌═══════════════════════════════════════════════════════════┐
+║              Orquesta OSS (this repo)                    ║
+║                                                          ║
+║  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐  ║
+║  │ Next.js  │  │  Socket.io   │  │  Prisma + SQLite  │  ║
+║  │  API     │  │  Server      │  │  (data/dev.db)    │  ║
+║  └──────────┘  └──────────────┘  └───────────────────┘  ║
+║                                                          ║
+║  ┌──────────────────┐  ┌──────────────────────────────┐  ║
+║  │  better-auth     │  │  Agent relay & routing       │  ║
+║  │  (multi-user)    │  │  (session:*, hook:*, etc.)   │  ║
+║  └──────────────────┘  └──────────────────────────────┘  ║
+╚═══════════════════════════════════════════════════════════╝
+               ▲
+               │ oat_ token
+               │
+┌──────────────┴──────────────┐
+│     Agent (agent/index.js)  │
+│     Runs on your machine    │
+└─────────────────────────────┘
 ```
-
----
 
 ## Tech Stack
 
-- **Frontend**: Next.js 15, React 19, Tailwind CSS v4
-- **Backend**: Prisma ORM, Better Auth, Socket.io 4
-- **Database**: SQLite (default) or PostgreSQL
-- **Terminal**: xterm.js + node-pty
-- **Grid**: react-grid-layout
-- **AI**: Claude CLI (Anthropic)
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 15 |
+| Database | Prisma + SQLite |
+| Auth | better-auth |
+| Realtime | Socket.io |
+| PTY | @homebridge/node-pty |
+| Styling | Tailwind CSS v4 |
 
----
+## Environment Variables
 
-## API Reference
+Copy `.env.example` to `.env` and configure:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/agent/validate` | POST | Validate agent token, return transport config |
-| `/api/agent/heartbeat` | POST | Update agent last-seen timestamp |
-| `/api/agent/claude-md` | GET | Agent fetches CLAUDE.md for its project |
-| `/api/projects` | GET / POST | List / create projects |
-| `/api/projects/[id]` | GET / PATCH / DELETE | Project CRUD |
-| `/api/projects/[id]/prompts` | GET / POST | List / create prompts |
-| `/api/projects/[id]/settings` | GET / PATCH | Project settings (CLAUDE.md) |
-| `/api/projects/[id]/agent-tokens` | GET / POST | List / create tokens |
-| `/api/projects/[id]/members` | GET / POST | List / invite members |
-| `/api/prompts/[id]` | GET / PATCH | Prompt details + update status |
-| `/api/demo/seed` | POST | Seed demo project for new users |
-
-**Socket.io**: `/api/socket` path. Agents auth via `auth: { token }`.
-
----
-
-## Token Types
-
-| Prefix | Type | Scope |
-|--------|------|-------|
-| `oat_` | Agent token | Project-scoped — used by `orquesta-agent` |
-| `oclt_` | CLI token | Org-scoped — used by `orquesta-cli` |
-
----
-
-## Orquesta Cloud
-
-Need more? [Orquesta Cloud](https://orquesta.live) is the hosted version with:
-
-- Scheduled prompts (cron-based automation)
-- Integrations (Linear, GitHub, Vercel, Telegram)
-- Performance dashboard (cost trends, execution stats)
-- Quality gates & signoff workflows
-- Supervision & guardrails
-- VM provisioning from dashboard
-- Embed SDK for third-party websites
-- Batuta autonomous agent (4 execution modes)
-
----
-
-## Contributing
-
-Contributions welcome! Open an issue or PR on GitHub.
-
-```bash
-# Run locally
-npm install
-npm run db:push
-npm run dev
-
-# Run tests (coming soon)
-npm test
+```env
+DATABASE_URL="file:./data/dev.db"
+BETTER_AUTH_SECRET="your-secret-here"
+BETTER_AUTH_URL="http://localhost:3000"
 ```
 
----
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server (port 3000) |
+| `npm run build` | Production build |
+| `npm start` | Start production server |
+| `npx prisma db push` | Apply schema to database |
+| `npx prisma studio` | Browse database |
+
+## Related
+
+- [orquesta-terminal](https://github.com/Getorquesta/orquesta-terminal) — Terminal workspace product
+- [getorquesta.com](https://getorquesta.com) — Hosted platform (cloud alternative)
 
 ## License
 
-[MIT](LICENSE)
+MIT
