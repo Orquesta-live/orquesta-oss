@@ -36,13 +36,8 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
-  // /dashboard without subpath: redirect to terminal (the product)
-  if (pathname === '/dashboard') {
-    if (sessionCookie) {
-      return NextResponse.redirect(new URL('/dashboard/terminal', req.url))
-    }
-    return NextResponse.redirect(new URL('/login', req.url))
-  }
+  // /dashboard without subpath: show the classic dashboard (projects/agents view)
+  // Terminal workspace is at /dashboard/terminal
 
   return NextResponse.next()
 }

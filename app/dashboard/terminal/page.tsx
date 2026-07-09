@@ -237,6 +237,7 @@ export default function TerminalWorkspacePage() {
             title="Manage projects & agents"
           >
             <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline text-xs">Dashboard</span>
           </Link>
           <div className="flex items-center gap-2">
             <Image src="/logo-mark.png" alt="Orquesta" width={20} height={20} className="invert" priority />
