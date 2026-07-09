@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/logo.svg" width="80" height="80" alt="Orquesta OSS" />
+  <img src="https://raw.githubusercontent.com/Getorquesta/orquesta-oss/main/public/logo-mark.png" width="80" height="80" alt="Orquesta OSS" />
 </p>
 
 <h1 align="center">Orquesta OSS</h1>
