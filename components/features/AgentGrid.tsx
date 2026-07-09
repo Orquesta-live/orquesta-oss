@@ -417,7 +417,7 @@ function TerminalCell({
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div ref={containerRef} className="flex-1 p-1 overflow-hidden" />
+      <div ref={containerRef} className="flex-1 px-1 pt-1 pb-0 overflow-hidden" />
     </div>
   )
 }

@@ -367,17 +367,19 @@ socket.on('session:start', ({ sessionId, cellId, rows = 24, cols = 80, cliType =
     const { command, args } = resolveSessionCommand(cliType)
     const sessionCwd = cwd || process.env.ORQUESTA_WORKDIR || process.cwd()
 
+    // If orquesta-cli + hosted token, pass --token so it auto-connects
+    const finalArgs = [...args]
+    if (cliType === 'orquesta' && hostedToken) {
+      finalArgs.push('--token', hostedToken)
+    }
+
     // Hosted-hook belt-and-suspenders: when the pane is configured to report to
-    // a hosted Orquesta project, point the CLI's own reporter at it. The real
-    // enrollment is the `.orquesta.json` that `orquesta-agent init` drops in the
-    // cwd (both claude's .claude/settings.json hooks and orquesta-cli's
-    // prompt-reporter key off it); these env vars just make the target explicit
-    // so a stale default can't send logs to the wrong backend.
+    // a hosted Orquesta project, point the CLI's own reporter at it.
     const sessionEnv = { ...process.env }
     if (hostedApiUrl) sessionEnv.ORQUESTA_API_URL = hostedApiUrl
     if (hostedToken) sessionEnv.ORQUESTA_TOKEN = hostedToken
 
-    const term = pty.spawn(command, args, {
+    const term = pty.spawn(command, finalArgs, {
       name: 'xterm-color',
       rows,
       cols,
