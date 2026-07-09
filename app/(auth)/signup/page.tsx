@@ -32,7 +32,7 @@ export default function SignupPage() {
         throw new Error(data.message || data.error || 'Sign up failed')
       }
 
-      router.push('/dashboard/terminal')
+      router.push('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
