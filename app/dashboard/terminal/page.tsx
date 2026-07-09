@@ -14,7 +14,7 @@ import {
   Check, Terminal as TerminalIcon, Command as CommandIcon,
   LayoutGrid, Settings, RotateCcw, Paintbrush, Plus, X, Upload,
   Cloud, ExternalLink, Loader2, CheckCircle2, AlertCircle, Clock,
-  Star, Tag, MessageSquare, Send,
+  Star, Tag, MessageSquare, Send, Monitor,
 } from 'lucide-react'
 
 interface Project {
@@ -408,6 +408,9 @@ export default function TerminalWorkspacePage() {
               <Clock className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Timeline</span>
             </button>
+          )}
+          {online && (
+            <ExternalSessionsButton socket={socket} />
           )}
           <HostedHookPanel hosted={hosted} />
         </div>
@@ -1087,6 +1090,200 @@ function ChannelChat({ auth, projectId, channelId }: { auth: HostedAuth; project
           {sending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Send className="h-2.5 w-2.5" />}
         </button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * "Import Sessions" — detects Claude/orquesta-cli sessions running outside
+ * the OSS and lets the user attach (read-only tail of the JSONL transcript).
+ */
+interface ExternalSession {
+  id: string
+  cwd: string
+  file: string
+  lastActivity: number
+  size: number
+  isActive: boolean
+}
+
+function ExternalSessionsButton({ socket }: { socket: ReturnType<typeof useSocket>['socket'] }) {
+  const [open, setOpen] = useState(false)
+  const [sessions, setSessions] = useState<ExternalSession[]>([])
+  const [loading, setLoading] = useState(false)
+  const [attached, setAttached] = useState<string | null>(null)
+  const [transcript, setTranscript] = useState<Array<{ role?: string; type?: string; content?: string }>>([])
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const fetchSessions = useCallback(() => {
+    if (!socket) return
+    setLoading(true)
+    socket.emit('sessions:external-list', {})
+  }, [socket])
+
+  useEffect(() => {
+    if (!socket) return
+    const onResult = (data: { sessions?: ExternalSession[]; error?: string }) => {
+      setSessions(data.sessions || [])
+      setLoading(false)
+    }
+    const onData = (data: { sessionId: string; entry: Record<string, unknown> }) => {
+      if (data.sessionId !== attached) return
+      const entry = data.entry as { type?: string; message?: { role?: string; content?: unknown } }
+      const msg = entry.message
+      if (!msg) return
+      let text = ''
+      if (typeof msg.content === 'string') {
+        text = msg.content
+      } else if (Array.isArray(msg.content)) {
+        text = (msg.content as Array<{ type?: string; text?: string }>)
+          .filter(b => b.type === 'text' && b.text)
+          .map(b => b.text)
+          .join('\n')
+      }
+      if (text) {
+        setTranscript(prev => [...prev.slice(-100), { role: msg.role, type: entry.type, content: text }])
+      }
+    }
+    socket.on('sessions:external-list-result', onResult)
+    socket.on('sessions:external-data', onData)
+    return () => {
+      socket.off('sessions:external-list-result', onResult)
+      socket.off('sessions:external-data', onData)
+    }
+  }, [socket, attached])
+
+  useEffect(() => {
+    if (open) fetchSessions()
+  }, [open, fetchSessions])
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [transcript.length])
+
+  const attach = (session: ExternalSession) => {
+    setAttached(session.id)
+    setTranscript([])
+    socket?.emit('sessions:external-attach', { sessionId: session.id, file: session.file })
+  }
+
+  const detach = () => {
+    if (attached) socket?.emit('sessions:external-detach', { sessionId: attached })
+    setAttached(null)
+    setTranscript([])
+  }
+
+  const relTime = (ms: number) => {
+    const s = Math.floor((Date.now() - ms) / 1000)
+    if (s < 60) return `${s}s ago`
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`
+    return `${Math.floor(s / 3600)}h ago`
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+        title="Import external CLI sessions running on this machine"
+      >
+        <Monitor className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Import</span>
+        {sessions.some(s => s.isActive) && (
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+        )}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => { setOpen(false); detach() }} />
+          <div className="glass absolute right-0 top-full z-20 mt-2 w-96 rounded-xl p-3 max-h-[70vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                External Sessions
+              </p>
+              <button onClick={fetchSessions} className="text-[10px] text-zinc-500 hover:text-white">
+                ↻ Refresh
+              </button>
+            </div>
+
+            {!attached ? (
+              /* Session list */
+              <div className="flex-1 overflow-y-auto space-y-1.5">
+                {loading ? (
+                  <div className="flex items-center justify-center py-6 text-zinc-500 text-xs">
+                    <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> Scanning…
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-zinc-600">
+                    No active Claude sessions detected.
+                    <p className="mt-1 text-[10px] text-zinc-700">
+                      Run <code className="text-zinc-500">claude</code> in any terminal and it will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  sessions.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => attach(s)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-2 text-left hover:border-zinc-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${s.isActive ? 'bg-cyan-400 animate-pulse' : 'bg-zinc-600'}`} />
+                        <span className="text-[11px] text-zinc-200 font-mono truncate flex-1">
+                          {s.cwd.split('/').slice(-2).join('/')}
+                        </span>
+                        <span className="text-[9px] text-zinc-600">{relTime(s.lastActivity)}</span>
+                      </div>
+                      <p className="mt-0.5 text-[9px] text-zinc-500 truncate font-mono">{s.cwd}</p>
+                      <p className="mt-0.5 text-[9px] text-zinc-600">
+                        {s.isActive ? '● active' : '○ idle'} · {Math.round(s.size / 1024)}KB
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : (
+              /* Attached transcript view */
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-cyan-300 font-mono truncate">
+                    Attached: {attached.slice(0, 8)}…
+                  </span>
+                  <button
+                    onClick={detach}
+                    className="text-[10px] text-zinc-400 hover:text-white border border-zinc-700 rounded px-1.5 py-0.5"
+                  >
+                    Detach
+                  </button>
+                </div>
+                <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-1 max-h-[50vh]">
+                  {transcript.length === 0 ? (
+                    <p className="text-[10px] text-zinc-600 py-4 text-center">Waiting for activity…</p>
+                  ) : (
+                    transcript.map((t, i) => (
+                      <div key={i} className={`text-[10px] rounded px-2 py-1 ${
+                        t.role === 'assistant'
+                          ? 'bg-cyan-500/5 border border-cyan-500/10 text-cyan-100'
+                          : t.role === 'user'
+                          ? 'bg-green-500/5 border border-green-500/10 text-green-100'
+                          : 'bg-zinc-800/50 text-zinc-400'
+                      }`}>
+                        <span className="font-mono text-[9px] text-zinc-500 mr-1">
+                          {t.role === 'assistant' ? '🤖' : t.role === 'user' ? '👤' : '🔧'}
+                        </span>
+                        <span className="break-words whitespace-pre-wrap line-clamp-4">
+                          {t.content?.slice(0, 500)}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

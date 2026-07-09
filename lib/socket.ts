@@ -298,6 +298,28 @@ async function handleDashboardConnection(socket: Socket) {
     const room = `project-${socket.data.projectId}`
     socket.to(room).emit('hook:status', data)
   })
+
+  // External session detection (import running CLIs)
+  socket.on('sessions:external-list', (data) => {
+    const room = `project-${socket.data.projectId}`
+    socket.to(room).emit('sessions:external-list', data || {})
+  })
+  socket.on('sessions:external-list-result', (data) => {
+    const room = `project-${socket.data.projectId}`
+    socket.to(room).emit('sessions:external-list-result', data)
+  })
+  socket.on('sessions:external-attach', (data) => {
+    const room = `project-${socket.data.projectId}`
+    socket.to(room).emit('sessions:external-attach', data)
+  })
+  socket.on('sessions:external-detach', (data) => {
+    const room = `project-${socket.data.projectId}`
+    socket.to(room).emit('sessions:external-detach', data)
+  })
+  socket.on('sessions:external-data', (data) => {
+    const room = `project-${socket.data.projectId}`
+    socket.to(room).emit('sessions:external-data', data)
+  })
 }
 
 export function hashToken(token: string): string {

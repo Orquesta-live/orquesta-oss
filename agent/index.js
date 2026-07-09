@@ -604,6 +604,132 @@ socket.on('hook:init-project', async ({ token, apiUrl, projectId, projectName, c
   }
 })
 
+// ── External Session Detection (import running CLIs) ──────────────────────────
+//
+// Scans ~/.claude/projects/ for active JSONL transcripts. If a .jsonl file was
+// modified recently, there's a Claude session running outside the OSS. The
+// dashboard can "attach" to it by tailing the file.
+
+const os = require('os')
+
+function claudeProjectsRoot() {
+  return path.join(os.homedir(), '.claude', 'projects')
+}
+
+// Decode the Claude project dir name back to the original cwd
+function decodeDirName(encoded) {
+  // Claude Code encodes cwd as: /home/kai/foo → -home-kai-foo
+  return '/' + encoded.replace(/^-/, '').replace(/-/g, '/')
+}
+
+socket.on('sessions:external-list', async () => {
+  try {
+    const root = claudeProjectsRoot()
+    let projectDirs
+    try { projectDirs = await fsp.readdir(root) } catch { projectDirs = [] }
+
+    const sessions = []
+    const now = Date.now()
+    const RECENT_MS = 30 * 60 * 1000 // 30 min = likely active
+
+    for (const dir of projectDirs) {
+      const dirPath = path.join(root, dir)
+      let files
+      try { files = await fsp.readdir(dirPath) } catch { continue }
+
+      for (const file of files) {
+        if (!file.endsWith('.jsonl')) continue
+        const filePath = path.join(dirPath, file)
+        try {
+          const stat = await fsp.stat(filePath)
+          if (now - stat.mtimeMs > RECENT_MS) continue // not recent
+          // Read last line to get latest activity
+          const sessionId = file.replace('.jsonl', '')
+          const cwd = decodeDirName(dir)
+          sessions.push({
+            id: sessionId,
+            cwd,
+            file: filePath,
+            lastActivity: stat.mtimeMs,
+            size: stat.size,
+            isActive: now - stat.mtimeMs < 60_000, // modified in last minute = active
+          })
+        } catch { continue }
+      }
+    }
+
+    // Sort by lastActivity desc
+    sessions.sort((a, b) => b.lastActivity - a.lastActivity)
+    socket.emit('sessions:external-list-result', { sessions: sessions.slice(0, 20) })
+  } catch (err) {
+    socket.emit('sessions:external-list-result', { sessions: [], error: err.message })
+  }
+})
+
+// Tail an external Claude transcript and stream its content to the dashboard
+const activeTailers = new Map()
+
+socket.on('sessions:external-attach', ({ sessionId, file } = {}) => {
+  if (!sessionId || !file) return
+  if (activeTailers.has(sessionId)) return // already tailing
+
+  let offset = 0
+  let stopped = false
+
+  // Read existing content first (last 50 lines)
+  const readExisting = async () => {
+    try {
+      const content = await fsp.readFile(file, 'utf8')
+      const lines = content.trim().split('\n')
+      offset = Buffer.byteLength(content)
+      // Send last 50 lines as initial content
+      const initial = lines.slice(-50)
+      for (const line of initial) {
+        try {
+          const obj = JSON.parse(line)
+          socket.emit('sessions:external-data', { sessionId, entry: obj })
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // Poll for new content
+  const poll = async () => {
+    while (!stopped) {
+      try {
+        const stat = await fsp.stat(file)
+        if (stat.size > offset) {
+          const fd = await fsp.open(file, 'r')
+          const buf = Buffer.alloc(stat.size - offset)
+          await fd.read(buf, 0, buf.length, offset)
+          await fd.close()
+          offset = stat.size
+          const newLines = buf.toString('utf8').trim().split('\n')
+          for (const line of newLines) {
+            if (!line.trim()) continue
+            try {
+              const obj = JSON.parse(line)
+              socket.emit('sessions:external-data', { sessionId, entry: obj })
+            } catch {}
+          }
+        }
+      } catch {}
+      await new Promise(r => setTimeout(r, 500))
+    }
+  }
+
+  readExisting().then(poll)
+  activeTailers.set(sessionId, { stop: () => { stopped = true } })
+})
+
+socket.on('sessions:external-detach', ({ sessionId } = {}) => {
+  const tailer = activeTailers.get(sessionId)
+  if (tailer) {
+    tailer.stop()
+    activeTailers.delete(sessionId)
+  }
+})
+
 // ── Heartbeat ─────────────────────────────────────────────────────────────────
 
 setInterval(async () => {
