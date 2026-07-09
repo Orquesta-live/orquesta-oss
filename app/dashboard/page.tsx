@@ -176,6 +176,58 @@ export default function DashboardPage() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
 
+        {/* ── Product Hub ── */}
+        {view === 'projects' && projects.length === 0 && !loading && (
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link
+              href="/dashboard/terminal"
+              className="group rounded-xl border border-green-500/20 bg-green-500/5 p-6 transition-all hover:border-green-500/40 hover:bg-green-500/10"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="rounded-lg bg-green-500/20 p-2.5">
+                  <Terminal className="h-6 w-6 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Terminal Workspace</h3>
+                  <p className="text-xs text-green-400/80">The coding cockpit</p>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Run multiple CLIs side by side (Claude, Orquesta CLI, shell). Import running sessions, coordinate agents, report to the cloud.
+              </p>
+              <p className="mt-3 text-xs text-green-400 group-hover:underline">Open Terminal →</p>
+            </Link>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="rounded-lg bg-zinc-800 p-2.5">
+                  <FolderKanban className="h-6 w-6 text-zinc-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Project Dashboard</h3>
+                  <p className="text-xs text-zinc-500">Management & config</p>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Create projects, manage agent tokens, configure team members, view prompt history and agent logs.
+              </p>
+              <p className="mt-3 text-xs text-zinc-500">↓ Create your first project below</p>
+            </div>
+          </div>
+        )}
+
+        {view === 'projects' && projects.length > 0 && (
+          <div className="mb-6 flex items-center gap-3">
+            <Link
+              href="/dashboard/terminal"
+              className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-medium text-green-400 transition-colors hover:bg-green-500/20"
+            >
+              <Terminal className="h-4 w-4" /> Open Terminal Workspace
+            </Link>
+            <span className="text-xs text-zinc-600">or manage your projects below</span>
+          </div>
+        )}
+
         {/* ── Agent Grid view — show ALL agents at once ── */}
         {view === 'grid' && (
           <div className="space-y-6 animate-rise">
