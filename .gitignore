@@ -22,3 +22,6 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# Orquesta hook config (contains token)
+.orquesta.json

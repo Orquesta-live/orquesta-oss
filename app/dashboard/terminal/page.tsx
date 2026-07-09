@@ -14,7 +14,7 @@ import {
   Check, Terminal as TerminalIcon, Command as CommandIcon,
   LayoutGrid, Settings, RotateCcw, Paintbrush, Plus, X, Upload,
   Cloud, ExternalLink, Loader2, CheckCircle2, AlertCircle, Clock,
-  Star, Tag, MessageSquare,
+  Star, Tag, MessageSquare, Send,
 } from 'lucide-react'
 
 interface Project {
@@ -686,12 +686,57 @@ function PromptCard({
 }
 
 function HostedTimeline({ auth }: { auth: HostedAuth }) {
-  const [prompts, setPrompts] = useState<TimelinePrompt[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<'timeline' | 'coordination'>('timeline')
   const [selectedProjectId, setSelectedProjectId] = useState<string>(
     auth.projects.length === 1 ? auth.projects[0].id : ''
   )
+
+  return (
+    <aside className="relative z-10 flex w-72 shrink-0 flex-col border-l border-white/10 bg-zinc-900/80 backdrop-blur-sm">
+      {/* Header with project selector */}
+      <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+        <div className="flex items-center gap-2">
+          {(['timeline', 'coordination'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`text-[10px] font-mono uppercase tracking-wider transition-colors ${
+                tab === t ? 'text-green-400' : 'text-zinc-600 hover:text-zinc-400'
+              }`}
+            >
+              {t === 'timeline' ? '⏱ Timeline' : '🔗 Coordination'}
+            </button>
+          ))}
+        </div>
+        {auth.projects.length > 1 && (
+          <select
+            value={selectedProjectId}
+            onChange={e => setSelectedProjectId(e.target.value)}
+            className="max-w-[7rem] truncate rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 outline-none hover:bg-zinc-700 focus:ring-1 focus:ring-green-600/40"
+          >
+            <option value="">All</option>
+            {auth.projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Tab content */}
+      {tab === 'timeline' ? (
+        <TimelineTab auth={auth} selectedProjectId={selectedProjectId} />
+      ) : (
+        <CoordinationTab auth={auth} selectedProjectId={selectedProjectId} />
+      )}
+    </aside>
+  )
+}
+
+/** Timeline tab — prompts list with actions */
+function TimelineTab({ auth, selectedProjectId }: { auth: HostedAuth; selectedProjectId: string }) {
+  const [prompts, setPrompts] = useState<TimelinePrompt[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchPrompts = useCallback(async () => {
     if (!auth.token) return
@@ -700,7 +745,6 @@ function HostedTimeline({ auth }: { auth: HostedAuth }) {
     targetUrl.searchParams.set('limit', '25')
 
     try {
-      // Use local proxy to avoid CORS
       const res = await fetch('/api/hosted/proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -728,45 +772,322 @@ function HostedTimeline({ auth }: { auth: HostedAuth }) {
   }, [fetchPrompts])
 
   return (
-    <aside className="relative z-10 flex w-72 shrink-0 flex-col border-l border-white/10 bg-zinc-900/80 backdrop-blur-sm">
-      <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Timeline</p>
-        {auth.projects.length > 1 && (
-          <select
-            value={selectedProjectId}
-            onChange={e => setSelectedProjectId(e.target.value)}
-            className="max-w-[10rem] truncate rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 outline-none hover:bg-zinc-700 focus:ring-1 focus:ring-green-600/40"
-          >
-            <option value="">All projects</option>
-            {auth.projects.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        )}
-      </div>
+    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      {loading && prompts.length === 0 ? (
+        <div className="flex items-center justify-center py-8 text-zinc-500 text-xs">
+          <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> Loading…
+        </div>
+      ) : error ? (
+        <div className="text-center py-6 text-xs text-red-400">{error}</div>
+      ) : prompts.length === 0 ? (
+        <div className="text-center py-8 text-zinc-500 text-xs">No prompts yet.</div>
+      ) : (
+        prompts.map(p => (
+          <PromptCard
+            key={p.id}
+            prompt={p}
+            auth={auth}
+            selectedProjectId={selectedProjectId}
+            onUpdate={fetchPrompts}
+          />
+        ))
+      )}
+    </div>
+  )
+}
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {loading && prompts.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-zinc-500 text-xs">
-            <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> Loading…
-          </div>
-        ) : error ? (
-          <div className="text-center py-6 text-xs text-red-400">{error}</div>
-        ) : prompts.length === 0 ? (
-          <div className="text-center py-8 text-zinc-500 text-xs">No prompts yet.</div>
+/** Coordination tab — channels with chat and ping */
+interface CoordChannel {
+  id: string
+  name: string
+  participant_project_names?: string[]
+  cross_project?: boolean
+}
+
+interface CoordMessage {
+  id: number
+  from: string
+  to: string
+  text: string
+  at: number
+  kind?: string
+}
+
+function CoordinationTab({ auth, selectedProjectId }: { auth: HostedAuth; selectedProjectId: string }) {
+  const [channels, setChannels] = useState<CoordChannel[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [openChannelId, setOpenChannelId] = useState<string | null>(null)
+  const [pinging, setPinging] = useState<string | null>(null)
+  const [pingStatus, setPingStatus] = useState<{ id: string; msg: string; ok: boolean } | null>(null)
+
+  const projectId = selectedProjectId || auth.projects[0]?.id
+
+  const fetchChannels = useCallback(async () => {
+    if (!projectId || !auth.token) return
+    try {
+      const res = await fetch('/api/hosted/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: `${auth.apiUrl}/api/projects/${projectId}/coordination/channels`,
+          token: auth.token,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data.channels)) {
+          setChannels(data.channels)
+          setError(null)
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed')
+    } finally { setLoading(false) }
+  }, [projectId, auth.token, auth.apiUrl])
+
+  useEffect(() => { fetchChannels() }, [fetchChannels])
+
+  const ping = async (channelId: string) => {
+    setPinging(channelId)
+    setPingStatus(null)
+    try {
+      const res = await fetch('/api/hosted/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: `${auth.apiUrl}/api/projects/${projectId}/coordination/channels/${channelId}/ping`,
+          token: auth.token,
+          method: 'POST',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Ping failed')
+      const n = Array.isArray(data.dispatched) ? data.dispatched.length : 0
+      setPingStatus({ id: channelId, msg: `Pinged ${n} peer${n === 1 ? '' : 's'}`, ok: true })
+    } catch (e) {
+      setPingStatus({ id: channelId, msg: e instanceof Error ? e.message : 'Failed', ok: false })
+    } finally {
+      setPinging(null)
+      setTimeout(() => setPingStatus(null), 4000)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-8 text-zinc-500 text-xs">
+        <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> Loading…
+      </div>
+    )
+  }
+
+  if (!projectId) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-8 text-zinc-500 text-xs">
+        Select a project first.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-2 space-y-2">
+      {error && <div className="text-center py-2 text-xs text-red-400">{error}</div>}
+
+      {channels.length === 0 ? (
+        <div className="text-center py-8 text-xs text-zinc-500">
+          No coordination channels.
+          <a
+            href={`${auth.apiUrl}/dashboard/projects/${projectId}?view=coordination`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block mt-2 text-green-400/80 hover:underline"
+          >
+            Create one in the dashboard →
+          </a>
+        </div>
+      ) : (
+        channels.map(c => {
+          const peers = (c.participant_project_names || []).filter(Boolean)
+          const isOpen = openChannelId === c.id
+          return (
+            <div key={c.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-2">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px]">🔗</span>
+                <span className="text-[11px] font-medium text-zinc-200 truncate">{c.name}</span>
+                {c.cross_project && (
+                  <span className="text-[8px] px-1 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/20">cross</span>
+                )}
+              </div>
+              {peers.length > 0 && (
+                <p className="text-[9px] text-zinc-500 truncate mb-1.5">peers: {peers.join(', ')}</p>
+              )}
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setOpenChannelId(isOpen ? null : c.id)}
+                  className="flex-1 text-[10px] px-2 py-1 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 flex items-center justify-center gap-1"
+                >
+                  <MessageSquare className="h-2.5 w-2.5" />
+                  {isOpen ? 'Hide' : 'Chat'}
+                </button>
+                <button
+                  onClick={() => ping(c.id)}
+                  disabled={pinging === c.id}
+                  className="flex-1 text-[10px] px-2 py-1 rounded border border-purple-500/30 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  {pinging === c.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : '📡'}
+                  Ping
+                </button>
+              </div>
+              {pingStatus?.id === c.id && (
+                <p className={`mt-1.5 text-[9px] rounded px-1.5 py-1 ${
+                  pingStatus.ok ? 'bg-green-500/10 text-green-300 border border-green-500/20' : 'bg-red-500/10 text-red-300 border border-red-500/20'
+                }`}>
+                  {pingStatus.msg}
+                </p>
+              )}
+              {isOpen && (
+                <ChannelChat auth={auth} projectId={projectId} channelId={c.id} />
+              )}
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+/** Inline channel chat (messages + send) */
+function ChannelChat({ auth, projectId, channelId }: { auth: HostedAuth; projectId: string; channelId: string }) {
+  const [messages, setMessages] = useState<CoordMessage[]>([])
+  const [input, setInput] = useState('')
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [joining, setJoining] = useState(true)
+  const [sending, setSending] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Join channel
+  useEffect(() => {
+    let cancelled = false
+    const join = async () => {
+      try {
+        const res = await fetch('/api/hosted/proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: `${auth.apiUrl}/api/projects/${projectId}/coordination/channels/${channelId}/join`,
+            token: auth.token,
+            method: 'POST',
+            body: {},
+          }),
+        })
+        if (cancelled) return
+        if (res.ok) {
+          const data = await res.json()
+          setSessionId(data.session_id || null)
+          setMessages(Array.isArray(data.history) ? data.history : [])
+        }
+      } catch {}
+      if (!cancelled) setJoining(false)
+    }
+    join()
+    return () => { cancelled = true }
+  }, [auth, projectId, channelId])
+
+  // Poll for new messages
+  useEffect(() => {
+    if (!sessionId) return
+    let cancelled = false
+    const sinceRef = { current: messages.length > 0 ? messages[messages.length - 1].id : 0 }
+
+    const poll = async () => {
+      while (!cancelled) {
+        try {
+          const res = await fetch('/api/hosted/proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: `${auth.apiUrl}/api/projects/${projectId}/coordination/channels/${channelId}/listen?session_id=${sessionId}&since=${sinceRef.current}&timeout=15`,
+              token: auth.token,
+            }),
+          })
+          if (cancelled) return
+          if (res.ok) {
+            const data = await res.json()
+            const incoming: CoordMessage[] = Array.isArray(data.messages) ? data.messages : []
+            if (incoming.length > 0) {
+              setMessages(prev => [...prev, ...incoming.filter(m => m.kind !== 'status')])
+              sinceRef.current = incoming[incoming.length - 1].id
+            }
+          }
+        } catch {
+          if (cancelled) return
+          await new Promise(r => setTimeout(r, 2000))
+        }
+      }
+    }
+    poll()
+    return () => { cancelled = true }
+  }, [sessionId, auth, projectId, channelId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages.length])
+
+  const send = async () => {
+    const text = input.trim()
+    if (!text || !sessionId) return
+    setSending(true)
+    try {
+      await fetch('/api/hosted/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: `${auth.apiUrl}/api/projects/${projectId}/coordination/channels/${channelId}/send`,
+          token: auth.token,
+          method: 'POST',
+          body: { session_id: sessionId, to: 'all', text: `[👤 OPERATOR] ${text}` },
+        }),
+      })
+      setInput('')
+    } catch {}
+    setSending(false)
+  }
+
+  return (
+    <div className="mt-2 border-t border-zinc-800 pt-2">
+      <div ref={scrollRef} className="max-h-40 overflow-y-auto space-y-1 mb-1.5">
+        {joining ? (
+          <p className="text-[9px] text-zinc-500 py-2 text-center">Joining…</p>
+        ) : messages.length === 0 ? (
+          <p className="text-[9px] text-zinc-500 py-2 text-center">No messages yet.</p>
         ) : (
-          prompts.map(p => (
-            <PromptCard
-              key={p.id}
-              prompt={p}
-              auth={auth}
-              selectedProjectId={selectedProjectId}
-              onUpdate={fetchPrompts}
-            />
+          messages.map(m => (
+            <div key={m.id} className="text-[10px]">
+              <span className="font-mono text-cyan-400/80">{m.from}</span>
+              <span className="text-zinc-600 mx-1">→</span>
+              <span className="text-zinc-300 break-words">{m.text.replace(/^\[👤 OPERATOR\] /, '')}</span>
+            </div>
           ))
         )}
       </div>
-    </aside>
+      <div className="flex gap-1">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') send() }}
+          disabled={!sessionId || sending}
+          placeholder="Message…"
+          className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[10px] text-white placeholder:text-zinc-600 outline-none focus:border-cyan-500/50 disabled:opacity-50"
+        />
+        <button
+          onClick={send}
+          disabled={!input.trim() || !sessionId || sending}
+          className="px-1.5 py-1 rounded border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+        >
+          {sending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Send className="h-2.5 w-2.5" />}
+        </button>
+      </div>
+    </div>
   )
 }
 
