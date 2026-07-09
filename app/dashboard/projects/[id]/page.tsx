@@ -220,16 +220,6 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 </span>
               </div>
             </div>
-            <a
-              href="http://localhost:4000"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2.5 text-sm font-medium text-green-400 transition-all duration-200 hover:bg-green-500/20 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-900/20"
-            >
-              <Terminal className="h-4 w-4" />
-              Open in Terminal
-              <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-            </a>
           </div>
         </div>
       </header>

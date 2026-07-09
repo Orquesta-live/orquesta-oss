@@ -173,16 +173,6 @@ export default function DashboardPage() {
 
           {/* Right — Actions */}
           <div className="flex items-center gap-3">
-            <a
-              href="http://localhost:4000"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-green-900/30 transition-all duration-200 hover:from-green-500 hover:to-emerald-500 hover:shadow-green-800/40 hover:scale-[1.02]"
-            >
-              <Terminal className="h-3.5 w-3.5" />
-              Open Terminal
-              <ArrowUpRight className="h-3 w-3 opacity-60 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </a>
             <button
               onClick={signOut}
               className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-zinc-500 transition-all hover:bg-zinc-800/60 hover:text-zinc-300"
@@ -479,7 +469,7 @@ export default function DashboardPage() {
                           onClick={() => { setSelectedProjectId(p.id); fetchSessionToken(p.id) }}
                           className="flex items-center gap-1.5 rounded-md bg-green-600/20 border border-green-500/30 px-3 py-1.5 text-xs font-medium text-green-400 hover:bg-green-600/30 transition-all duration-200"
                         >
-                          <LayoutGrid className="h-3 w-3" /> Open Terminal
+                          <LayoutGrid className="h-3 w-3" /> Interactive Session
                         </button>
                         <Link
                           href={`/dashboard/projects/${p.id}`}
@@ -580,14 +570,6 @@ export default function DashboardPage() {
               className="font-mono text-[11px] text-zinc-600 transition-colors hover:text-zinc-400"
             >
               Docs
-            </a>
-            <a
-              href="http://localhost:4000"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-[11px] text-zinc-600 transition-colors hover:text-zinc-400"
-            >
-              Terminal
             </a>
           </div>
         </div>
