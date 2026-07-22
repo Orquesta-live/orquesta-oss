@@ -138,6 +138,13 @@ refuses to start without one.
 | `npx prisma db push` | Apply schema to database |
 | `npx prisma studio` | Browse database |
 
+## Security
+
+Read [SECURITY.md](SECURITY.md) before putting this on a network: it covers the
+`BETTER_AUTH_SECRET` requirement, how sessions and `oat_` agent tokens are
+authenticated, and what the agent can do on the host. Found a vulnerability?
+Email security@getorquesta.com instead of opening an issue.
+
 ## Related
 
 - [orquesta-terminal](https://github.com/Getorquesta/orquesta-terminal) — Terminal workspace product
