@@ -7,7 +7,10 @@ services:
       - ./data:/app/data
     environment:
       DATABASE_URL: "file:/app/data/orquesta.db"
-      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:-change-me-to-a-random-32-char-string}"
+      # Required — no default on purpose. A fallback baked into this file would
+      # be a session-signing secret that is public in the repo, so `up` fails
+      # fast instead. Generate one with: openssl rand -base64 32
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?required — generate one with: openssl rand -base64 32}"
       BETTER_AUTH_URL: "${BETTER_AUTH_URL:-http://localhost:3000}"
       NEXT_PUBLIC_APP_URL: "${NEXT_PUBLIC_APP_URL:-http://localhost:3000}"
       PORT: "3000"

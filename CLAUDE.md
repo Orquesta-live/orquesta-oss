@@ -20,7 +20,9 @@ This is the **backend/infra** layer:
 |------|---------|
 | `Getorquesta/orquesta-oss` | This repo — self-hosted backend |
 | `Getorquesta/orquesta-terminal` | Terminal product (frontend, connects here) |
-| `opcastil11/orquesta` | Private hosted platform (getorquesta.com) |
+
+Orquesta Cloud ([getorquesta.com](https://getorquesta.com)) is the managed
+alternative to running this backend yourself. Its source is not public.
 
 ## Rules
 

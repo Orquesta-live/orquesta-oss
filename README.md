@@ -120,9 +120,13 @@ Copy `.env.example` to `.env` and configure:
 
 ```env
 DATABASE_URL="file:./data/dev.db"
-BETTER_AUTH_SECRET="your-secret-here"
+BETTER_AUTH_SECRET="your-secret-here"   # openssl rand -base64 32
 BETTER_AUTH_URL="http://localhost:3000"
 ```
+
+`BETTER_AUTH_SECRET` signs your sessions — generate your own and keep it out of
+git. Docker Compose reads it from the environment (or a local `.env`) and
+refuses to start without one.
 
 ## Scripts
 
